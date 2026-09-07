@@ -7,5 +7,5 @@ app = FastAPI()
 def read_root():
   return {
       "status": "success",
-      "message": "Inventory backend: Hello World!",
+      "message": "Inventory backend: What's up, World!",
   }
