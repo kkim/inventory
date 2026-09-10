@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1층 정밀 3D 건축 평면도 (GV70 바퀴 수직 정렬 완료)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0b0f17;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #hud {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 14px 18px;
+            color: #cbd5e1;
+            z-index: 10;
+            pointer-events: none;
+            max-width: 440px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+        #hud h1 {
+            font-size: 14px;
+            margin: 0 0 6px 0;
+            color: #f8fafc;
+        }
+        #hud p {
+            font-size: 11px;
+            margin: 0 0 8px 0;
+            line-height: 1.45;
+            color: #94a3b8;
+        }
+        .tag {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .grid-edge-label {
+            position: absolute;
+            color: rgba(56, 189, 248, 0.7);
+            font-size: 9px;
+            font-family: monospace;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 1px 3px;
+            border-radius: 2px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            white-space: nowrap;
+            display: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="hud">
+        <h1>1층 상세 3D 평면 레이아웃</h1>
+        <p>• 제네시스 GV70: 바퀴 회전축(Z축) 보정으로 4개 휠/타이어 수직 기립 완료<br>• 동쪽 차고 셔터 도어 방향 정렬 및 정밀 건축 벽체 유지</p>
+        <span class="tag">회전: 좌클릭 | 패닝: 우클릭 | 줌: 휠</span>
+    </div>
+
+    <div id="label-container"></div>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0b0f17);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 6000);
+        camera.position.set(135, 560, 540);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(135, 0, 150);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05;
+
+        // 조명
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.7));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+        sun.position.set(225, 600, 200);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.left = -350;
+        sun.shadow.camera.right = 450;
+        sun.shadow.camera.top = 350;
+        sun.shadow.camera.bottom = -350;
+        scene.add(sun);
+
+        // 재질
+        const matFloor = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.4 });
+        const matOfficeFloor = new THREE.MeshStandardMaterial({ color: 0x2e3846, roughness: 0.5 });
+        const matBathFloor = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3 }); 
+        const matGarageFloor = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
+        const matWall = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+        const matGlass = new THREE.MeshPhysicalMaterial({ 
+            color: 0x93c5fd, 
+            transparent: true, 
+            opacity: 0.22, 
+            roughness: 0.1, 
+            transmission: 0.7 
+        });
+        const matShowerGlass = new THREE.MeshPhysicalMaterial({
+            color: 0xa5f3fc,
+            transparent: true,
+            opacity: 0.4,
+            roughness: 0.1
+        });
+        const matStair = new THREE.MeshStandardMaterial({ color: 0xc28e5c, roughness: 0.45 });
+        const matDoor = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.5 });
+        const matClosetDoor = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
+        const matPocket = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.5 });
+        const matGarageShutter = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.4, metalness: 0.6 });
+        const matAppliance = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.3 });
+        const matCabinet = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+        const matCounter = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2 });
+
+        // GV70 재질
+        const matCarBody = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.25, metalness: 0.85 });
+        const matCarGlass = new THREE.MeshPhysicalMaterial({ color: 0x0f172a, roughness: 0.1, transmission: 0.6, transparent: true, opacity: 0.8 });
+        const matTire = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+        const matWheel = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 });
+
+        const model = new THREE.Group();
+
+        const H = 90;
+        const T = 5;
+
+        const originX = -103;
+        const originZ = 5;
+
+        const eastOuterX = 378; // 차고 실내 폭 19'-10" (238") 연동
+
+        const southBedNorthZ = 162.5; 
+        const southBedNorthInnerZ = southBedNorthZ + T / 2; // 165.0
+        
+        const southBedSouthInnerZ = southBedNorthInnerZ + 132; // 297.0 (11'-0")
+        const southBedSouthZ = southBedSouthInnerZ + T / 2;     // 299.5
+        const westFloorZ = southBedSouthZ + T / 2;             // 302.0
+
+        const eastSouthZ = southBedSouthZ + 12;                // 311.5 (1ft 남쪽 돌출)
+        const eastSouthInnerZ = eastSouthZ - T / 2;            // 309.0
+        const eastFloorZ = eastSouthZ + T / 2;                 // 314.0
+
+        // 1. 기초 슬래브
+        const westFloor = new THREE.Mesh(new THREE.BoxGeometry(157 - (-108), 4, westFloorZ), matFloor);
+        westFloor.position.set((-108 + 157) / 2, -2, westFloorZ / 2);
+        westFloor.receiveShadow = true;
+        model.add(westFloor);
+
+        const eastFloor = new THREE.Mesh(new THREE.BoxGeometry(eastOuterX - 157, 4, eastFloorZ), matFloor);
+        eastFloor.position.set((157 + eastOuterX) / 2, -2, eastFloorZ / 2);
+        eastFloor.receiveShadow = true;
+        model.add(eastFloor);
+
+        const garageSlab = new THREE.Mesh(new THREE.BoxGeometry(eastOuterX - 135, 4.2, 155), matGarageFloor);
+        garageSlab.position.set((135 + eastOuterX) / 2, -1.9, 155 / 2);
+        garageSlab.receiveShadow = true;
+        model.add(garageSlab);
+
+        const officeSlab = new THREE.Mesh(new THREE.BoxGeometry(70, 4.2, eastFloorZ - 155), matOfficeFloor);
+        officeSlab.position.set(((eastOuterX - 70) + eastOuterX) / 2, -1.9, (155 + eastFloorZ) / 2);
+        officeSlab.receiveShadow = true;
+        model.add(officeSlab);
+
+        function addWall(x, z, w, d, isGlass = false) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(w, H, d),
+                isGlass ? matGlass : matWall
+            );
+            mesh.position.set(x, H / 2, z);
+            mesh.castShadow = !isGlass;
+            mesh.receiveShadow = true;
+            model.add(mesh);
+            return mesh;
+        }
+
+        function addRotatedWall(x, z, length, thickness, angleY, customMat = matWall) {
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(length, H, thickness),
+                customMat
+            );
+            mesh.position.set(x, H / 2, z);
+            mesh.rotation.y = angleY;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            model.add(mesh);
+            return mesh;
+        }
+
+        function addClosedDoor(x, z, length, isHorizontal = false, customMat = matDoor) {
+            const w = isHorizontal ? length : 2.5;
+            const d = isHorizontal ? 2.5 : length;
+            const door = new THREE.Mesh(new THREE.BoxGeometry(w, H * 0.88, d), customMat);
+            door.position.set(x, (H * 0.88) / 2, z);
+            door.castShadow = true;
+            model.add(door);
+        }
+
+        // 2. 외곽벽
+        addWall((-108 + eastOuterX) / 2, T / 2, eastOuterX - (-108), T, false);
+        addWall(-108 + T / 2, westFloorZ / 2, T, westFloorZ, true);
+
+        // 동측 외벽 차고 셔터
+        const shutterDoor = new THREE.Mesh(new THREE.BoxGeometry(2.5, H * 0.92, 140), matGarageShutter);
+        shutterDoor.position.set(eastOuterX - T / 2, (H * 0.92) / 2, 77.5);
+        shutterDoor.castShadow = true;
+        model.add(shutterDoor);
+
+        // 차고 남쪽 오피스 외벽
+        addWall(eastOuterX - T / 2, (155 + eastFloorZ) / 2, T, eastFloorZ - 155, false);
+
+        // 남측 외벽
+        addWall((-108 + 157) / 2, southBedSouthZ, 157 - (-108), T, false); 
+        addWall((157 + eastOuterX) / 2, eastSouthZ, eastOuterX - 157, T, false);
+        addWall(157, (southBedSouthZ + eastSouthZ) / 2, T, eastSouthZ - southBedSouthZ);
+
+        // 3. 서측 북쪽 침실
+        const northBedEastX = 73.5; 
+        const dividerZ = 138.5; 
+
+        addWall(northBedEastX, (50 + 100) / 2, T, 50);
+        addClosedDoor(northBedEastX, 100 + 18, 36, false, matDoor);
+        addWall(northBedEastX, (136 + dividerZ) / 2, T, dividerZ - 136);
+
+        const closetSplitX = -108 + 96; 
+        addWall((-108 + closetSplitX) / 2, dividerZ, 96, T);
+        addWall(closetSplitX, dividerZ + 12, T, 24);
+        
+        const topClosetW = northBedEastX - 2.5 - closetSplitX; 
+        addWall((closetSplitX + northBedEastX) / 2, southBedNorthZ, topClosetW, T);
+        addWall(northBedEastX, dividerZ + 12, T, 24);
+
+        addClosedDoor((-108 + closetSplitX) / 2, southBedNorthZ, 96, true, matClosetDoor);
+        addClosedDoor((closetSplitX + northBedEastX) / 2, dividerZ, topClosetW, true, matClosetDoor);
+
+        // 계단실 시작선(stairStartNorthZ = 227)
+        const stairX1 = 157;
+        const stairX2 = 196;
+        const landingDepth = 32;
+        const stairMidTurnZ = eastSouthInnerZ - landingDepth; // 277
+        const stairFlightDepth = 50;
+        const stairStartNorthZ = stairMidTurnZ - stairFlightDepth; // 227
+
+        // 4. 서측 남쪽 침실 및 계단밑 라인에 맞춘 W.I.C
+        const southBedEastX = -108 + 209; // 101
+        const southDoorX = southBedEastX - 12; // 89
+        const southDoorWidth = 36;
+        const southDoorEndZ = southBedNorthZ + southDoorWidth; // 198.5
+
+        addWall((northBedEastX + southDoorX) / 2, southBedNorthZ, southDoorX - northBedEastX, T);
+        addClosedDoor(southDoorX, southBedNorthZ + southDoorWidth / 2, southDoorWidth, false, matDoor);
+
+        const wicNorthZ = stairStartNorthZ; // 227.0
+        const wicSouthInnerZ = southBedSouthInnerZ; // 297.0
+        const wicDepth = wicSouthInnerZ - (wicNorthZ + T / 2); // 67.5인치
+
+        addWall((southBedEastX + stairX1) / 2, wicNorthZ, stairX1 - southBedEastX, T);
+        addWall((southDoorX + southBedEastX) / 2, wicNorthZ, southBedEastX - southDoorX, T);
+
+        const entryConnectorLen = wicNorthZ - southDoorEndZ; // 28.5"
+        if (entryConnectorLen > 0) {
+            addWall(southDoorX, (southDoorEndZ + wicNorthZ) / 2, T, entryConnectorLen);
+        }
+
+        const closetDoorLength = 40;
+        const closetDoorZ = (wicNorthZ + T / 2) + closetDoorLength / 2 + 4;
+        addClosedDoor(southBedEastX, closetDoorZ, closetDoorLength, false, matClosetDoor);
+
+        const wicWallLen = wicDepth - closetDoorLength - 4;
+        if (wicWallLen > 0) {
+            addWall(southBedEastX, wicSouthInnerZ - wicWallLen / 2, T, wicWallLen);
+        }
+
+        addWall(stairX1, (wicNorthZ + westFloorZ) / 2, T, westFloorZ - wicNorthZ);
+
+        // 5. 다용도실 및 북측 수납 공간
+        const garageWestX = 135;
+        const utilitySplitZ = 50;
+
+        addWall((northBedEastX + garageWestX) / 2, utilitySplitZ, garageWestX - northBedEastX, T);
+        addWall((northBedEastX + garageWestX) / 2, utilitySplitZ / 2, T, utilitySplitZ);
+
+        addWall(northBedEastX, 5, T, 10);
+        addClosedDoor(northBedEastX, 24, 28, false, matPocket);
+        addWall(northBedEastX, (38 + utilitySplitZ) / 2, T, utilitySplitZ - 38);
+
+        addWall(garageWestX, 5, T, 10);
+        addClosedDoor(garageWestX, 24, 28, false, matPocket);
+        addWall(garageWestX, (38 + utilitySplitZ) / 2, T, utilitySplitZ - 38);
+
+        addClosedDoor(northBedEastX + 16, 95, 32, true, matDoor);
+        addClosedDoor(garageWestX - 16, 95, 32, true, matDoor);
+
+        const washer = new THREE.Mesh(new THREE.BoxGeometry(27, 38, 28), matAppliance);
+        washer.position.set(northBedEastX + 16, 19, 95 - 18);
+        washer.castShadow = true;
+        model.add(washer);
+
+        const dryer = new THREE.Mesh(new THREE.BoxGeometry(27, 38, 28), matAppliance);
+        dryer.position.set(northBedEastX + 16 + 29, 19, 95 - 18);
+        dryer.castShadow = true;
+        model.add(dryer);
+
+        // 6. 차고 남벽 및 돌출벽
+        const garageSouthZ = 155;
+        const doorLeftWallW = 6;
+        const doorW = 36;
+        const doorRightWallW = 6;
+
+        const doorStartX = garageWestX + doorLeftWallW; 
+        const doorEndX = doorStartX + doorW;           
+        const bumpWallX = doorEndX + doorRightWallW; // 183
+        const bumpWallLen = 18;
+        const bumpWallEndZ = garageSouthZ + bumpWallLen; // 173
+
+        addWall(garageWestX, (50 + garageSouthZ) / 2, T, garageSouthZ - 50);
+        addWall((garageWestX + doorStartX) / 2, garageSouthZ, doorLeftWallW, T);
+        addClosedDoor((doorStartX + doorEndX) / 2, garageSouthZ, doorW, true, matDoor);
+        addWall((doorEndX + bumpWallX) / 2, garageSouthZ, doorRightWallW, T);
+        addWall((bumpWallX + eastOuterX) / 2, garageSouthZ, eastOuterX - bumpWallX, T);
+        addWall(bumpWallX, garageSouthZ + bumpWallLen / 2, T, bumpWallLen);
+
+        // 7. 계단실
+        addWall(stairX2, (stairStartNorthZ + stairMidTurnZ) / 2, T, stairMidTurnZ - stairStartNorthZ);
+        addClosedDoor(stairX1 + 18, stairStartNorthZ, 36, true, matDoor);
+        addWall(stairX2 - 1.5, stairStartNorthZ, 3, T);
+
+        const nSteps1 = 8;
+        const w1 = stairX2 - stairX1;
+        const d1 = (stairMidTurnZ - stairStartNorthZ) / nSteps1;
+        const rise = H / 14;
+
+        for (let i = 0; i < nSteps1; i++) {
+            const step = new THREE.Mesh(new THREE.BoxGeometry(w1 - 2, rise, d1), matStair);
+            step.position.set((stairX1 + stairX2) / 2, H - (i + 1) * rise, stairStartNorthZ + (i + 0.5) * d1);
+            step.castShadow = true;
+            model.add(step);
+        }
+
+        const landing = new THREE.Mesh(new THREE.BoxGeometry(w1 - 2, rise, landingDepth), matStair);
+        landing.position.set((stairX1 + stairX2) / 2, H - (nSteps1 + 1) * rise, stairMidTurnZ + landingDepth / 2);
+        model.add(landing);
+
+        const nSteps2 = 4;
+        const step2W = 32 / nSteps2;
+        const startH2 = H - (nSteps1 + 1) * rise;
+
+        for (let j = 0; j < nSteps2; j++) {
+            const step2 = new THREE.Mesh(new THREE.BoxGeometry(step2W, (startH2 / nSteps2) * (nSteps2 - j), landingDepth), matStair);
+            step2.position.set(stairX2 + (j + 0.5) * step2W, ((startH2 / nSteps2) * (nSteps2 - j)) / 2, stairMidTurnZ + landingDepth / 2);
+            step2.castShadow = true;
+            model.add(step2);
+        }
+
+        // 8. 홈 오피스
+        const officeWestX = eastOuterX - 70; // 308
+        const officeDoorWidth = 36;
+        const officeSouthZ = eastSouthZ; 
+        const officeDoorZ = officeSouthZ - officeDoorWidth / 2;
+
+        const officeWallLen = (officeSouthZ - officeDoorWidth) - garageSouthZ;
+        addWall(officeWestX, garageSouthZ + officeWallLen / 2, T, officeWallLen);
+        addClosedDoor(officeWestX, officeDoorZ, officeDoorWidth, false, matDoor);
+
+        // 9. 샤워부스 및 세면대
+        const showerSouthZ = officeSouthZ - 48; 
+        const showerSize = 36;
+        const showerWestX = officeWestX - showerSize; // 272
+        const showerNorthZ = showerSouthZ - showerSize; // 227.5
+
+        const showerTray = new THREE.Mesh(new THREE.BoxGeometry(showerSize, 2, showerSize), matBathFloor);
+        showerTray.position.set((showerWestX + officeWestX) / 2, 1, (showerNorthZ + showerSouthZ) / 2);
+        model.add(showerTray);
+
+        addWall(officeWestX - showerSize / 2, showerSouthZ, showerSize, T);
+        addWall(showerWestX, (showerNorthZ + showerSouthZ) / 2, T, showerSize);
+
+        const showerDoor = new THREE.Mesh(new THREE.BoxGeometry(showerSize, H * 0.85, 1.8), matShowerGlass);
+        showerDoor.position.set((showerWestX + officeWestX) / 2, (H * 0.85) / 2, showerNorthZ);
+        showerDoor.castShadow = true;
+        model.add(showerDoor);
+
+        const vanityW = 36;
+        const vanityD = 22;
+        const vanityH = 34;
+        const vanityX = officeWestX - vanityW / 2;
+        const vanityZ = garageSouthZ + vanityD / 2 + T / 2;
+
+        const vanityBase = new THREE.Mesh(new THREE.BoxGeometry(vanityW, vanityH, vanityD), matCabinet);
+        vanityBase.position.set(vanityX, vanityH / 2, vanityZ);
+        vanityBase.castShadow = true;
+        model.add(vanityBase);
+
+        const vanityTop = new THREE.Mesh(new THREE.BoxGeometry(vanityW + 1, 2.5, vanityD + 1), matCounter);
+        vanityTop.position.set(vanityX, vanityH + 1.25, vanityZ);
+        vanityTop.castShadow = true;
+        model.add(vanityTop);
+
+        // 10. 화장실 대각 벽체 및 슬라이딩 포켓도어
+        const p1 = new THREE.Vector2(bumpWallX, bumpWallEndZ);
+        const p2 = new THREE.Vector2(showerWestX, showerNorthZ);
+        
+        const delta = new THREE.Vector2().subVectors(p2, p1);
+        const totalDiagLen = delta.length();
+        const diagAngle = -Math.atan2(delta.y, delta.x);
+
+        const unitDir = delta.clone().normalize();
+
+        const pocketPktWallLen = 50;
+        const pocketDoorLen = 32;
+        const pocketEndWallLen = Math.max(0, totalDiagLen - (pocketPktWallLen + pocketDoorLen));
+
+        const w1CenterDist = pocketPktWallLen / 2;
+        const w1Pos = new THREE.Vector2().addVectors(p1, unitDir.clone().multiplyScalar(w1CenterDist));
+        addRotatedWall(w1Pos.x, w1Pos.y, pocketPktWallLen, T, diagAngle);
+
+        const doorCenterDist = pocketPktWallLen + pocketDoorLen / 2;
+        const doorPos = new THREE.Vector2().addVectors(p1, unitDir.clone().multiplyScalar(doorCenterDist));
+        const diagDoor = new THREE.Mesh(new THREE.BoxGeometry(pocketDoorLen, H * 0.88, 2.5), matPocket);
+        diagDoor.position.set(doorPos.x, (H * 0.88) / 2, doorPos.y);
+        diagDoor.rotation.y = diagAngle;
+        diagDoor.castShadow = true;
+        model.add(diagDoor);
+
+        if (pocketEndWallLen > 0) {
+            const w2CenterDist = pocketPktWallLen + pocketDoorLen + pocketEndWallLen / 2;
+            const w2Pos = new THREE.Vector2().addVectors(p1, unitDir.clone().multiplyScalar(w2CenterDist));
+            addRotatedWall(w2Pos.x, w2Pos.y, pocketEndWallLen, T, diagAngle);
+        }
+
+        // [제네시스 GV70 정밀 3D 모델링 - 바퀴 수직 정렬 완료]
+        const carGroup = new THREE.Group();
+        const carLen = 185.6; // 전장 (X축)
+        const carWidth = 75.2; // 전폭 (Z축)
+        const carHeight = 64.2;
+
+        // 하부 차체 바디
+        const bodyLower = new THREE.Mesh(new THREE.BoxGeometry(carLen, 24, carWidth), matCarBody);
+        bodyLower.position.set(0, 18, 0);
+        bodyLower.castShadow = true;
+        carGroup.add(bodyLower);
+
+        // 상부 쿠페형 루프 캐빈
+        const cabinLen = carLen * 0.58;
+        const cabinWidth = carWidth * 0.88;
+        const cabinHeight = carHeight - 24 - 6;
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(cabinLen, cabinHeight, cabinWidth), matCarGlass);
+        cabin.position.set(-8, 30 + cabinHeight / 2, 0);
+        cabin.castShadow = true;
+        carGroup.add(cabin);
+
+        // 루프 탑 커버
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(cabinLen * 0.9, 2.5, cabinWidth * 0.95), matCarBody);
+        roof.position.set(-8, 30 + cabinHeight + 1, 0);
+        roof.castShadow = true;
+        carGroup.add(roof);
+
+        // 휠 & 타이어 (rotateX(Math.PI / 2)로 회전축을 Z축으로 일치시켜 수직 기립)
+        const wheelGeo = new THREE.CylinderGeometry(14, 14, 8, 20);
+        wheelGeo.rotateX(Math.PI / 2);
+
+        const wheelRimGeo = new THREE.CylinderGeometry(9, 9, 8.2, 16);
+        wheelRimGeo.rotateX(Math.PI / 2);
+
+        const wheelOffsets = [
+            { x: carLen * 0.32,  z: -carWidth / 2 - 1 }, // 전륜 좌
+            { x: carLen * 0.32,  z: carWidth / 2 + 1 },  // 전륜 우
+            { x: -carLen * 0.32, z: -carWidth / 2 - 1 }, // 후륜 좌
+            { x: -carLen * 0.32, z: carWidth / 2 + 1 }   // 후륜 우
+        ];
+
+        wheelOffsets.forEach(pos => {
+            const tire = new THREE.Mesh(wheelGeo, matTire);
+            tire.position.set(pos.x, 14, pos.z);
+            tire.castShadow = true;
+            carGroup.add(tire);
+
+            const rim = new THREE.Mesh(wheelRimGeo, matWheel);
+            rim.position.set(pos.x, 14, pos.z);
+            carGroup.add(rim);
+        });
+
+        // 차고 내 정중앙 주차 (전면이 동쪽 셔터 출구를 향함)
+        const garageCenterX = (135 + eastOuterX) / 2;
+        const garageCenterZ = 77.5;
+        carGroup.position.set(garageCenterX, 0, garageCenterZ);
+        scene.add(carGroup);
+
+        scene.add(model);
+
+        // 1피트 3D 그리드
+        const gridGroup = new THREE.Group();
+        const labelContainer = document.getElementById('label-container');
+        const edgeLabels = [];
+
+        const gridLineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.2 });
+
+        for (let dzFt = 0; dzFt <= 28; dzFt += 1) {
+            const zInches = originZ + (dzFt * 12);
+            const points = [
+                new THREE.Vector3(originX, 1, zInches),
+                new THREE.Vector3(originX + (42 * 12), 1, zInches)
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, gridLineMat);
+            gridGroup.add(line);
+
+            if (dzFt % 5 === 0 || dzFt === 11 || dzFt === 19 || dzFt === 25) { 
+                createEdgeLabel(`${dzFt}'S`, new THREE.Vector3(originX - 10, 1, zInches));
+            }
+        }
+
+        for (let dxFt = 0; dxFt <= 42; dxFt += 1) {
+            const xInches = originX + (dxFt * 12);
+            const points = [
+                new THREE.Vector3(xInches, 1, originZ),
+                new THREE.Vector3(xInches, 1, originZ + (28 * 12))
+            ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const line = new THREE.Line(geometry, gridLineMat);
+            gridGroup.add(line);
+
+            if (dxFt % 5 === 0 || dxFt === 14) {
+                createEdgeLabel(`${dxFt}'E`, new THREE.Vector3(xInches, 1, originZ - 10));
+            }
+        }
+
+        scene.add(gridGroup);
+
+        function createEdgeLabel(text, pos3d) {
+            const div = document.createElement('div');
+            div.className = 'grid-edge-label';
+            div.innerText = text;
+            labelContainer.appendChild(div);
+            edgeLabels.push({ element: div, position: pos3d });
+        }
+
+        function updateEdgeLabels() {
+            const tempVector = new THREE.Vector3();
+            for (let label of edgeLabels) {
+                tempVector.copy(label.position);
+                tempVector.project(camera);
+
+                if (tempVector.z < 1) {
+                    const x = (tempVector.x * .5 + .5) * window.innerWidth;
+                    const y = (tempVector.y * -.5 + .5) * window.innerHeight;
+                    label.element.style.display = 'block';
+                    label.element.style.left = `${x}px`;
+                    label.element.style.top = `${y}px`;
+                } else {
+                    label.element.style.display = 'none';
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            updateEdgeLabels();
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
+

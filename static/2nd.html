@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>주방 & 거실 & 계단 3D 렌더링 - 북쪽벽 캐비넷 재정렬</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #18191c; font-family: sans-serif; }
+    canvas { width: 100vw; height: 100vh; display: block; }
+    #info {
+      position: absolute; top: 16px; left: 16px; color: #f0f0f0;
+      background: rgba(20,20,22,0.85); padding: 14px 20px; border-radius: 8px;
+      font-size: 13px; line-height: 1.6; pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <strong>주방 북쪽벽 가구 재정렬 렌더링</strong><br>
+    • 마우스 좌클릭: 회전 | 우클릭: 이동 | 휠: 줌<br>
+    • 캐비넷 1, 2: 폭 24"씩, 깊이 12" 슬림 타워장<br>
+    • 캐비넷 3, 4: 폭 24"씩, 깊이 24" 표준 타워장<br>
+    • 배치 순서: 캐비넷1,2(12"D) ➔ 캐비넷3,4(24"D) ➔ 냉장고 ➔ 식세기 ➔ 싱크대 ➔ 코너장
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x18191c);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 8000);
+    camera.position.set(100, 270, 430);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(80, 20, 180);
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color(0xeef2f7);
+    const eL1 = new THREE.DirectionalLight(0xffffff, 2.5);
+    eL1.position.set(1, 2, 1);
+    envScene.add(eL1);
+    const eL2 = new THREE.DirectionalLight(0xdbe5f0, 1.5);
+    eL2.position.set(-1, 1, -1);
+    envScene.add(eL2);
+    scene.environment = pmremGenerator.fromScene(envScene).texture;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    scene.add(ambientLight);
+
+    const mainLight = new THREE.DirectionalLight(0xfff5ea, 2.0);
+    mainLight.position.set(140, 320, 180);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+    mainLight.shadow.bias = -0.0004;
+    scene.add(mainLight);
+
+    const fillLight = new THREE.DirectionalLight(0xd5e3f5, 0.8);
+    fillLight.position.set(-90, 160, -40);
+    scene.add(fillLight);
+
+    const bathLight = new THREE.PointLight(0xffffff, 0.9, 260);
+    bathLight.position.set(185, 85, 70);
+    scene.add(bathLight);
+
+    const stairLight1 = new THREE.PointLight(0xffeedd, 1.5, 260);
+    stairLight1.position.set(175, 10, 238);
+    scene.add(stairLight1);
+
+    const stairLight2 = new THREE.PointLight(0xffeedd, 1.2, 220);
+    stairLight2.position.set(205, -20, 278);
+    scene.add(stairLight2);
+
+    const fireLight = new THREE.PointLight(0xff7722, 1.8, 90);
+    fireLight.position.set(7, 22, 276);
+    scene.add(fireLight);
+
+    // ==========================================
+    // 텍스처 생성기
+    // ==========================================
+    function createGraniteTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#232528';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      const speckleColors = ['#151618', '#383c42', '#4b525d', '#717b8a', '#abb2bf', '#1a1b1d'];
+      for (let i = 0; i < 45000; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 1024;
+        ctx.fillStyle = speckleColors[Math.floor(Math.random() * speckleColors.length)];
+        ctx.beginPath();
+        ctx.arc(x, y, Math.random() * 2.2 + 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 2);
+      return tex;
+    }
+
+    function createWoodCabinetTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#9e7552';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      ctx.fillStyle = '#7a5438';
+      for (let i = 0; i < 350; i++) {
+        const y = Math.random() * 1024;
+        const h = Math.random() * 3 + 1;
+        ctx.globalAlpha = 0.15;
+        ctx.fillRect(0, y, 1024, h);
+      }
+      ctx.globalAlpha = 1.0;
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1.5, 1.5);
+      return tex;
+    }
+
+    function createDarkWoodFloorTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#4a3728';
+      ctx.fillRect(0, 0, 1024, 1024);
+
+      ctx.strokeStyle = '#2b1f16';
+      ctx.lineWidth = 3;
+      const plankH = 56;
+      for (let y = 0; y < 1024; y += plankH) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1024, y); ctx.stroke();
+        const offset = (y / plankH) % 2 === 0 ? 0 : 128;
+        for (let x = offset; x < 1024; x += 256) {
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + plankH); ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(6.0, 4.5);
+      return tex;
+    }
+
+    function createTileTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#dcdedf';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.strokeStyle = '#9ca0a4';
+      ctx.lineWidth = 4;
+      const size = 128;
+      for (let x = 0; x <= 512; x += size) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 512); ctx.stroke();
+      }
+      for (let y = 0; y <= 512; y += size) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 6);
+      return tex;
+    }
+
+    function createRugTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#dfdcd5';
+      ctx.fillRect(0, 0, 512, 512);
+      ctx.fillStyle = '#cac6bc';
+      for (let i = 0; i < 8000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(4, 4);
+      return tex;
+    }
+
+    function createBrickTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#944b36';
+      ctx.fillRect(0, 0, 512, 512);
+
+      ctx.strokeStyle = '#dfdad3';
+      ctx.lineWidth = 4;
+      const rowH = 32;
+      const colW = 64;
+      for (let y = 0; y <= 512; y += rowH) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke();
+        const offset = (y / rowH) % 2 === 0 ? 0 : colW / 2;
+        for (let x = offset; x <= 512; x += colW) {
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + rowH); ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3, 4);
+      return tex;
+    }
+
+    // 재질 정의
+    const floorMat = new THREE.MeshStandardMaterial({ map: createDarkWoodFloorTexture(), roughness: 0.45 });
+    const bathTileMat = new THREE.MeshStandardMaterial({ map: createTileTexture(), roughness: 0.25 });
+    const rugMat = new THREE.MeshStandardMaterial({ map: createRugTexture(), roughness: 0.95 });
+    const wallMat = new THREE.MeshPhysicalMaterial({ color: 0xf5f8fa, transmission: 0.85, opacity: 0.88, transparent: true, roughness: 0.35, ior: 1.45 });
+    const woodCabMat = new THREE.MeshStandardMaterial({ map: createWoodCabinetTexture(), roughness: 0.35 });
+    const brickMat = new THREE.MeshStandardMaterial({ map: createBrickTexture(), roughness: 0.85 });
+    const gapMat = new THREE.MeshStandardMaterial({ color: 0x1f1610, roughness: 0.9 });
+    const toeKickMat = new THREE.MeshStandardMaterial({ color: 0x141210, roughness: 0.8 });
+
+    const graniteCounterMat = new THREE.MeshStandardMaterial({
+      map: createGraniteTexture(),
+      roughness: 0.18,
+      metalness: 0.1
+    });
+
+    const brushedSSMat = new THREE.MeshStandardMaterial({
+      color: 0xeeeeee,
+      metalness: 0.88,
+      roughness: 0.25
+    });
+
+    const darkSSMat = new THREE.MeshStandardMaterial({
+      color: 0x22252a,
+      metalness: 0.85,
+      roughness: 0.2
+    });
+
+    const translucentWallMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf5f8fa,
+      transmission: 0.85,
+      opacity: 0.88,
+      transparent: true,
+      roughness: 0.35,
+      ior: 1.45,
+      metalness: 0.05
+    });
+
+    const couchFabricMat = new THREE.MeshStandardMaterial({ color: 0x828487, roughness: 0.85 });
+    const cushionFabricMat = new THREE.MeshStandardMaterial({ color: 0x9a9ca0, roughness: 0.8 });
+    const couchLegMat = new THREE.MeshStandardMaterial({ color: 0x1c1b1a, roughness: 0.5 });
+
+    const tableWoodMat = new THREE.MeshStandardMaterial({ map: createWoodCabinetTexture(), roughness: 0.3 });
+    const chairFrameMat = new THREE.MeshStandardMaterial({ color: 0x241d18, roughness: 0.5 });
+    const chairCushionMat = new THREE.MeshStandardMaterial({ color: 0xd8d4cb, roughness: 0.9 });
+
+    const ceramicWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15 });
+    const tubInnerMat = new THREE.MeshStandardMaterial({ color: 0xedf2f4, roughness: 0.1 });
+    const mirrorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.0, metalness: 0.98 });
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0xc8c3bb, roughness: 0.6 });
+    const entryDoorMat = new THREE.MeshStandardMaterial({ color: 0x2c3539, roughness: 0.4 });
+
+    const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.1, metalness: 0.9 });
+    const tvBezelMat = new THREE.MeshStandardMaterial({ color: 0x151618, roughness: 0.4 });
+
+    const pianoBodyMat = new THREE.MeshStandardMaterial({ color: 0x181819, roughness: 0.35, metalness: 0.1 });
+    const pianoKeyWhiteMat = new THREE.MeshStandardMaterial({ color: 0xf5f4f0, roughness: 0.15 });
+    const pianoKeyBlackMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0b, roughness: 0.2 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.9, roughness: 0.2 });
+    const cardboardMat = new THREE.MeshStandardMaterial({ color: 0xb58a58, roughness: 0.8 });
+
+    const cooktopGlass = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, metalness: 0.95 });
+    const burnerMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.7, metalness: 0.2 });
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xa0d0ea, transparent: true, opacity: 0.35, roughness: 0.05, transmission: 0.9 });
+    const fireGlassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, roughness: 0.05, transmission: 0.95 });
+    const showerGlassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, roughness: 0.1, transmission: 0.9 });
+    const windowFrameMat = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.4 });
+
+    function createBox(w, h, d, x, y, z, mat, shadow = true) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x + w / 2, y + h / 2, z + d / 2);
+      mesh.castShadow = shadow;
+      mesh.receiveShadow = shadow;
+      scene.add(mesh);
+      return mesh;
+    }
+
+    function addWallAlignedHandle(x, y, z, facing = 'back', isVertical = false, length = 6) {
+      const handleMat = brushedSSMat;
+      const thick = 0.4;
+      const standoff = 0.8;
+      const group = new THREE.Group();
+
+      let barGeom, p1Geom, p2Geom;
+      let barPos, p1Pos, p2Pos;
+
+      if (facing === 'back') {
+        if (isVertical) {
+          barGeom = new THREE.BoxGeometry(thick, length, thick);
+          barPos = [0, 0, standoff];
+          p1Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p1Pos = [0, -(length / 2 - thick), standoff / 2];
+          p2Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p2Pos = [0, (length / 2 - thick), standoff / 2];
+        } else {
+          barGeom = new THREE.BoxGeometry(length, thick, thick);
+          barPos = [0, 0, standoff];
+          p1Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p1Pos = [-(length / 2 - thick), 0, standoff / 2];
+          p2Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p2Pos = [(length / 2 - thick), 0, standoff / 2];
+        }
+      } else if (facing === 'front') {
+        if (isVertical) {
+          barGeom = new THREE.BoxGeometry(thick, length, thick);
+          barPos = [0, 0, -standoff];
+          p1Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p1Pos = [0, -(length / 2 - thick), -standoff / 2];
+          p2Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p2Pos = [0, (length / 2 - thick), -standoff / 2];
+        } else {
+          barGeom = new THREE.BoxGeometry(length, thick, thick);
+          barPos = [0, 0, -standoff];
+          p1Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p1Pos = [-(length / 2 - thick), 0, -standoff / 2];
+          p2Geom = new THREE.BoxGeometry(thick, thick, standoff);
+          p2Pos = [(length / 2 - thick), 0, -standoff / 2];
+        }
+      } else if (facing === 'right') {
+        if (isVertical) {
+          barGeom = new THREE.BoxGeometry(thick, length, thick);
+          barPos = [-standoff, 0, 0];
+          p1Geom = new THREE.BoxGeometry(standoff, thick, thick);
+          p1Pos = [-standoff / 2, -(length / 2 - thick), 0];
+          p2Geom = new THREE.BoxGeometry(standoff, thick, thick);
+          p2Pos = [-standoff / 2, (length / 2 - thick), 0];
+        } else {
+          barGeom = new THREE.BoxGeometry(thick, thick, length);
+          barPos = [-standoff, 0, 0];
+          p1Geom = new THREE.BoxGeometry(standoff, thick, thick);
+          p1Pos = [-standoff / 2, 0, -(length / 2 - thick)];
+          p2Geom = new THREE.BoxGeometry(standoff, thick, thick);
+          p2Pos = [-standoff / 2, 0, (length / 2 - thick)];
+        }
+      }
+
+      const bar = new THREE.Mesh(barGeom, handleMat);
+      bar.position.set(...barPos);
+      bar.castShadow = true;
+      group.add(bar);
+
+      const p1 = new THREE.Mesh(p1Geom, handleMat);
+      p1.position.set(...p1Pos);
+      group.add(p1);
+
+      const p2 = new THREE.Mesh(p2Geom, handleMat);
+      p2.position.set(...p2Pos);
+      group.add(p2);
+
+      group.position.set(x, y, z);
+      scene.add(group);
+    }
+
+    // ==========================================
+    // 바닥 구획 (계단실 개구부 보존)
+    // ==========================================
+    function createFloorPlane(w, d, x, z, mat) {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x + w / 2, 0, z + d / 2);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      return mesh;
+    }
+
+    createFloorPlane(255, 288, -108, 0, floorMat);
+    createFloorPlane(62, 144, 151, 0, bathTileMat);
+    createFloorPlane(64, 62, 147, 144, floorMat);
+    createFloorPlane(190, 180, 213, 0, floorMat);
+    createFloorPlane(168, 108, 235, 180, floorMat);
+
+    // ==========================================
+    // 외벽 구조
+    // ==========================================
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(511, 108, 2), wallMat);
+    backWall.position.set(147.5, 54, -1);
+    scene.add(backWall);
+
+    const kitchenEastWall = new THREE.Mesh(new THREE.BoxGeometry(2, 108, 144), wallMat);
+    kitchenEastWall.position.set(151, 54, 72);
+    scene.add(kitchenEastWall);
+
+    const farEastWall = new THREE.Mesh(new THREE.BoxGeometry(2, 108, 288), wallMat);
+    farEastWall.position.set(403, 54, 144);
+    scene.add(farEastWall);
+
+    // ==========================================
+    // 화장실 내부 설비 & 욕조 & 동향 변기
+    // ==========================================
+    createBox(16, 108, 2, 151, 0, 144, wallMat);
+    createBox(32, 28, 2, 167, 80, 144, wallMat);
+    createBox(14, 108, 2, 199, 0, 144, wallMat);
+
+    const bathDoor = new THREE.Mesh(new THREE.BoxGeometry(30, 80, 1.5), doorMat);
+    bathDoor.position.set(182, 40, 145);
+    bathDoor.rotation.y = -0.4;
+    scene.add(bathDoor);
+    createBox(1.5, 5, 2, 192, 38, 144, brushedSSMat);
+
+    const tubX = 153.2;
+    const tubW = 59.6;
+    const tubZ = 1.0;
+    const tubD = 31.0;
+    const tubH = 20.0;
+    const rimT = 3.5;
+
+    createBox(tubW, tubH, 3.5, tubX, 0, tubZ + tubD - 3.5, ceramicWhiteMat);
+    createBox(rimT, tubH, tubD - 3.5, tubX, 0, tubZ, ceramicWhiteMat);
+    createBox(rimT, tubH, tubD - 3.5, tubX + tubW - rimT, 0, tubZ, ceramicWhiteMat);
+    createBox(tubW - rimT * 2, rimT, 3.0, tubX + rimT, tubH - rimT, tubZ, ceramicWhiteMat);
+
+    createBox(tubW - rimT * 2, 2.0, tubD - rimT - 3.0, tubX + rimT, 0.5, tubZ + 1.0, tubInnerMat);
+    createBox(tubW - rimT * 2, tubH - rimT, 1.5, tubX + rimT, 0.5, tubZ + 1.0, tubInnerMat);
+    createBox(tubW - rimT * 2, tubH - rimT, 1.5, tubX + rimT, 0.5, tubZ + tubD - rimT - 1.5, tubInnerMat);
+    createBox(1.5, tubH - rimT, tubD - rimT - 3.0, tubX + rimT, 0.5, tubZ + 1.0, tubInnerMat);
+    createBox(1.5, tubH - rimT, tubD - rimT - 3.0, tubX + tubW - rimT - 1.5, 0.5, tubZ + 1.0, tubInnerMat);
+    createBox(2, 6, 2, 154, 20, 16, brushedSSMat);
+
+    createBox(8, 28, 18, 153.2, 0, 51, ceramicWhiteMat);
+    createBox(20, 16, 14, 161.2, 0, 53, ceramicWhiteMat);
+    createBox(1.5, 1.0, 1.5, 158.0, 26, 65, brushedSSMat);
+
+    createBox(22, 32, 48, 153, 0, 90, woodCabMat);
+    createBox(23, 1.5, 49, 153, 32, 89.5, graniteCounterMat);
+    createBox(16, 6, 22, 156, 31, 103, ceramicWhiteMat);
+    createBox(1, 38, 44, 153, 44, 92, mirrorMat);
+    createBox(0.2, 32, 0.3, 175.2, 0, 114, gapMat);
+    addWallAlignedHandle(175, 22, 102, 'right', false, 8);
+    addWallAlignedHandle(175, 22, 126, 'right', false, 12);
+
+    // ==========================================
+    // 화장실 동쪽벽 (X=213) 및 침실 1 서쪽벽 (X=245)
+    // ==========================================
+    createBox(2, 108, 72, 213, 0, 0, wallMat);
+
+    createBox(32, 108, 2, 213, 0, 72, wallMat);
+    createBox(32, 108, 2, 213, 0, 120, wallMat);
+    createBox(2, 108, 48, 245, 0, 72, wallMat);
+    createBox(2, 6, 2, 243, 70, 96, brushedSSMat);
+
+    const showerDoor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 80, 44), showerGlassMat);
+    showerDoor.position.set(213, 40, 96);
+    showerDoor.rotation.y = -0.3;
+    scene.add(showerDoor);
+    createBox(0.6, 12, 0.6, 212.5, 38, 104, brushedSSMat);
+
+    createBox(2, 108, 24, 213, 0, 120, wallMat);
+    createBox(2, 108, 24, 245, 0, 120, wallMat);
+    createBox(32, 28, 2, 213, 80, 144, wallMat);
+
+    const linenDoor = new THREE.Mesh(new THREE.BoxGeometry(30, 80, 1.5), doorMat);
+    linenDoor.position.set(229, 40, 145);
+    linenDoor.rotation.y = 0.35;
+    scene.add(linenDoor);
+    createBox(1.5, 5, 2, 241, 38, 144, brushedSSMat);
+
+    // ==========================================
+    // 북쪽 침실 벽장 (E17)
+    // ==========================================
+    createBox(2, 108, 6, 245, 0, 0, wallMat);
+    createBox(2, 108, 6, 245, 0, 66, wallMat);
+    createBox(2, 28, 60, 245, 80, 6, wallMat);
+
+    createBox(1.0, 79.5, 59.5, 245.2, 0, 6.2, doorMat);
+    createBox(0.2, 79.5, 0.3, 246.3, 0, 36, gapMat);
+    createBox(0.2, 79.5, 0.3, 246.3, 0, 21, gapMat);
+    createBox(0.2, 79.5, 0.3, 246.3, 0, 51, gapMat);
+
+    // ==========================================
+    // 복도 쪽 경계벽체 (Z: 180)
+    // ==========================================
+    createBox(47, 108, 1.5, 213, 0, 180, translucentWallMat);
+    createBox(32, 28, 1.5, 260, 80, 180, translucentWallMat);
+    createBox(111, 108, 1.5, 292, 0, 180, translucentWallMat);
+    createBox(30, 80, 1.5, 276, 40, 180, doorMat);
+
+    createBox(2, 108, 64, 211, 0, 144, wallMat);
+    createBox(2, 108, 74, 187, 0, 210, wallMat);
+    createBox(24, 108, 2, 187, 0, 210, wallMat);
+    createBox(24, 80, 1.5, 187, 0, 284, doorMat);
+    createBox(1.5, 108, 108, 187, 0, 180, translucentWallMat);
+
+    // ==========================================
+    // L자형 하향 계단실 & 남쪽 벽 상부 채광창
+    // ==========================================
+    const ponyWallThickness = 3;
+    const ponyWallX = 148;
+    const ponyWallLength = 100;
+    const ponyWallHeight = 42;
+
+    createBox(ponyWallThickness, ponyWallHeight, ponyWallLength, ponyWallX, 0, 206, wallMat);
+    createBox(4.5, 1.5, ponyWallLength + 1, ponyWallX - 0.75, ponyWallHeight, 205.5, woodCabMat);
+
+    createBox(2, 108, 48, 191, 0, 206, wallMat);
+
+    createBox(30, 108, 2, 151, 0, 302, wallMat);
+    createBox(30, 108, 2, 205, 0, 302, wallMat);
+    createBox(54, 60, 2, 151, 0, 302, wallMat);
+    createBox(54, 12, 2, 151, 96, 302, wallMat);
+
+    createBox(34, 36, 1.5, 161, 60, 302.25, glassMat);
+    createBox(36, 1.2, 2, 160, 95.5, 302, windowFrameMat);
+    createBox(36, 1.2, 2, 160, 59.5, 302, windowFrameMat);
+    createBox(1.2, 36, 2, 160, 60, 302, windowFrameMat);
+    createBox(1.2, 36, 2, 195.5, 60, 302, windowFrameMat);
+
+    const flight1W = 40;
+    const tread1D = 11;
+    const riserH = 7.5;
+    const flight1Steps = 4;
+    const stairZStart = 210;
+
+    for (let i = 0; i < flight1Steps; i++) {
+      const stepZ = stairZStart + i * tread1D;
+      const stepY = -i * riserH;
+
+      createBox(flight1W, 1.5, tread1D, 151, stepY - 1.5, stepZ, floorMat);
+      createBox(flight1W, 1.5, 1.5, 151, stepY - 1.5, stepZ + tread1D - 1.5, woodCabMat);
+      createBox(flight1W, riserH, 1.5, 151, stepY - riserH, stepZ + tread1D - 1.5, wallMat);
+    }
+
+    const landingY = -flight1Steps * riserH;
+    createBox(40, 2.0, 48, 151, landingY - 2.0, 254, floorMat);
+    createBox(1.5, 2.0, 48, 191 - 1.5, landingY - 2.0, 254, woodCabMat);
+
+    const flight2Steps = 4;
+    const flight2Z = 262;
+    const flight2W = 40;
+    const tread2W = 11;
+
+    for (let j = 0; j < flight2Steps; j++) {
+      const stepX = 191 + j * tread2W;
+      const stepY2 = landingY - j * riserH;
+
+      createBox(tread2W, 1.5, flight2W, stepX, stepY2 - 1.5, flight2Z, floorMat);
+      createBox(1.5, 1.5, flight2W, stepX + tread2W - 1.5, stepY2 - 1.5, flight2Z, woodCabMat);
+      createBox(1.5, riserH, flight2W, stepX + tread2W - 1.5, stepY2 - riserH, flight2Z, wallMat);
+    }
+
+    createBox(2, 90, 96, 148, -90, stairZStart, wallMat);
+    createBox(86, 90, 2, 151, -90, 302, wallMat);
+    createBox(2, 90, 44, 235, -90, flight2Z, wallMat);
+
+    // ==========================================
+    // 현관 동쪽 벽체 및 현관문
+    // ==========================================
+    createBox(2, 108, 42, 151, 0, 264, wallMat);
+    createBox(2, 108, 24, 113, 0, 264, wallMat);
+    createBox(36, 26, 2, 115, 82, 264, wallMat);
+
+    const entryDoorX = 115;
+    createBox(36, 82, 2.5, entryDoorX, 0, 264, entryDoorMat);
+    createBox(36, 1.2, 2.8, entryDoorX, 80.8, 263.85, windowFrameMat);
+    createBox(1.2, 82, 2.8, entryDoorX, 0, 263.85, windowFrameMat);
+    createBox(1.2, 82, 2.8, entryDoorX + 34.8, 0, 263.85, windowFrameMat);
+    createBox(8, 50, 0.6, entryDoorX + 6, 20, 265, glassMat);
+    createBox(1.2, 24, 1.2, entryDoorX + 30, 32, 267.2, brushedSSMat);
+
+    createBox(38, 0.4, 24, 113, 0.05, 264, bathTileMat);
+    createBox(12, 10, 10, 118, 0.4, 272, cardboardMat);
+    createBox(14, 8, 12, 132, 0.4, 270, cardboardMat);
+
+    // ==========================================
+    // 바닥 안착형 TV 콘솔장 & 65" TV
+    // ==========================================
+    const tvWidth = 57;
+    const tvHeight = 33;
+    const tvY = 44;
+    const tvCenterX = 78.5;
+
+    createBox(tvWidth, tvHeight, 1.8, tvCenterX - tvWidth / 2, tvY, 285.5, tvBezelMat);
+    createBox(tvWidth - 1.2, tvHeight - 1.2, 0.4, tvCenterX - tvWidth / 2 + 0.6, tvY + 0.6, 285.2, tvScreenMat);
+
+    const consoleW = 58;
+    createBox(consoleW, 18, 16, tvCenterX - consoleW / 2, 0, 271.5, woodCabMat);
+    createBox(consoleW, 0.2, 0.3, tvCenterX - consoleW / 2, 9, 271.3, gapMat);
+    createBox(0.2, 18, 0.3, tvCenterX, 0, 271.3, gapMat);
+    addWallAlignedHandle(tvCenterX - 14, 12, 271.5, 'front', false, 6);
+    addWallAlignedHandle(tvCenterX + 14, 12, 271.5, 'front', false, 6);
+
+    createBox(2, 80, 2, tvCenterX - 15, 0, 286.5, windowFrameMat);
+    createBox(2, 80, 2, tvCenterX + 15, 0, 286.5, windowFrameMat);
+
+    // ==========================================
+    // 벽난로 (총 폭 66인치)
+    // ==========================================
+    const fpStartX = -41;
+    const fpH = 54;
+    const fpD = 18;
+    const fpZ = 270;
+    const brickMargin = 18;
+
+    createBox(brickMargin, fpH, fpD, fpStartX, 0, fpZ, brickMat);
+    createBox(brickMargin, fpH, fpD, fpStartX + brickMargin + 30, 0, fpZ, brickMat);
+    createBox(30, 18, fpD, fpStartX + brickMargin, 36, fpZ, brickMat);
+    createBox(30, 6, fpD, fpStartX + brickMargin, 0, fpZ, brickMat);
+    createBox(66 + 4, 3, 20, fpStartX - 2, fpH, fpZ - 1, tableWoodMat);
+
+    createBox(30, 30, 16, fpStartX + brickMargin, 6, fpZ + 1, darkSSMat);
+    createBox(28, 28, 1, fpStartX + brickMargin + 1, 7, fpZ + 16, darkSSMat);
+    createBox(20, 4, 5, fpStartX + brickMargin + 5, 7, fpZ + 8, woodCabMat);
+    createBox(16, 3, 4, fpStartX + brickMargin + 7, 10, fpZ + 9, woodCabMat);
+    createBox(28, 28, 0.5, fpStartX + brickMargin + 1, 7, fpZ + 1.2, fireGlassMat);
+    createBox(30, 1.5, 1, fpStartX + brickMargin, 6, fpZ + 0.8, darkSSMat);
+    createBox(30, 1.5, 1, fpStartX + brickMargin, 34.5, fpZ + 0.8, darkSSMat);
+    createBox(1.5, 30, 1, fpStartX + brickMargin, 6, fpZ + 0.8, darkSSMat);
+    createBox(1.5, 30, 1, fpStartX + brickMargin + 28.5, 6, fpZ + 0.8, darkSSMat);
+
+    // ==========================================
+    // 폭 28인치 책꽂이 2개
+    // ==========================================
+    function createCustomBookcase(xPos, zPos) {
+      const bW = 28;
+      const bH = 72;
+      const bD = 14;
+      const thick = 1.2;
+
+      createBox(thick, bH, bD, xPos, 0, zPos, woodCabMat);
+      createBox(thick, bH, bD, xPos + bW - thick, 0, zPos, woodCabMat);
+      createBox(bW, bH, 0.8, xPos, 0, zPos + bD - 0.8, woodCabMat);
+      createBox(bW, thick, bD, xPos, 0, zPos, woodCabMat);
+      createBox(bW, thick, bD, xPos, bH - thick, zPos, woodCabMat);
+
+      for (let s = 1; s <= 4; s++) {
+        const sY = s * 14;
+        createBox(bW - thick * 2, thick, bD - 1, xPos + thick, sY, zPos, woodCabMat);
+        createBox(10, 8, 8, xPos + 3 + (s % 2) * 8, sY + thick, zPos + 2, carpetColors[s % 3]);
+      }
+    }
+    const carpetColors = [couchLegMat, darkSSMat, entryDoorMat];
+
+    createCustomBookcase(-97, 273);
+    createCustomBookcase(-69, 273);
+
+    // ==========================================
+    // 서쪽 파티션 & 피아노 & 식탁 & 아일랜드
+    // ==========================================
+    createBox(18.0, 105.0, 1.2, -108.0, 1.5, 138.15, translucentWallMat);
+    createBox(18.0, 1.5, 1.6, -108.0, 0, 138.0, windowFrameMat);
+    createBox(18.0, 1.5, 1.6, -108.0, 106.5, 138.0, windowFrameMat);
+    createBox(1.2, 108, 1.6, -91.2, 0, 138.0, windowFrameMat);
+
+    const pianoX = -108;
+    const pianoZ = 160;
+    const pianoW = 18;
+    const pianoL = 54;
+    const pianoH = 34;
+
+    createBox(pianoW, pianoH - 4, 1.5, pianoX, 0, pianoZ, pianoBodyMat);
+    createBox(pianoW, pianoH - 4, 1.5, pianoX, 0, pianoZ + pianoL - 1.5, pianoBodyMat);
+    createBox(pianoW + 2, 1.5, 2.5, pianoX, 0, pianoZ - 0.5, pianoBodyMat);
+    createBox(pianoW + 2, 1.5, 2.5, pianoX, 0, pianoZ + pianoL - 2.0, pianoBodyMat);
+
+    createBox(0.8, 16, pianoL - 3, pianoX + 0.5, 12, pianoZ + 1.5, pianoBodyMat);
+    createBox(8, 2, pianoL - 3, pianoX + 5, 1, pianoZ + 1.5, pianoBodyMat);
+    for (let p = 0; p < 3; p++) {
+      createBox(3, 0.8, 1.2, pianoX + 11, 2, pianoZ + pianoL / 2 - 2.5 + p * 2.2, brassMat);
+    }
+
+    createBox(pianoW, 6, pianoL, pianoX, pianoH - 6, pianoZ, pianoBodyMat);
+    createBox(6, 1.2, pianoL - 4, pianoX + pianoW - 6, pianoH - 2.5, pianoZ + 2, pianoKeyWhiteMat);
+    for (let k = 0; k < 36; k++) {
+      createBox(3.8, 1.0, 0.6, pianoX + pianoW - 6, pianoH - 1.8, pianoZ + 3 + k * 1.35, pianoKeyBlackMat);
+    }
+
+    createBox(0.8, 8, 28, pianoX + 6, pianoH, pianoZ + 13, pianoBodyMat);
+    createBox(1.5, 0.8, 28, pianoX + 6, pianoH, pianoZ + 13, pianoBodyMat);
+
+    const benchX = -85;
+    const benchZ = 175;
+    const benchW = 13;
+    const benchL = 24;
+    const benchH = 19;
+
+    createBox(1.5, benchH - 2, 1.5, benchX, 0, benchZ, pianoBodyMat);
+    createBox(1.5, benchH - 2, 1.5, benchX + benchW - 1.5, 0, benchZ, pianoBodyMat);
+    createBox(1.5, benchH - 2, 1.5, benchX, 0, benchZ + benchL - 1.5, pianoBodyMat);
+    createBox(1.5, benchH - 2, 1.5, benchX + benchW - 1.5, 0, benchZ + benchL - 1.5, pianoBodyMat);
+    createBox(benchW, 1.2, benchL, benchX, benchH - 2.5, benchZ, pianoBodyMat);
+    createBox(benchW, 2.0, benchL, benchX, benchH - 1.3, benchZ, couchLegMat);
+
+    // ==========================================
+    // [업데이트] 북벽 주방 가구:
+    // 순서: 캐비넷1,2(12"D) ➔ 캐비넷3,4(24"D) ➔ 냉장고 ➔ 식세기 ➔ 싱크대 ➔ 코너장
+    // ==========================================
+    // 1. 캐비넷 1, 2: 폭 각 24", 깊이 12" 슬림 타워장 (X: -108 ~ -60)
+    createBox(48, 4, 9, -108, 0, 0, toeKickMat, false);
+    createBox(48, 80, 12, -108, 4, 0, woodCabMat);
+    createBox(0.3, 80, 0.4, -84, 4, 11.8, gapMat);
+    createBox(48, 0.3, 0.4, -108, 48, 11.8, gapMat);
+    addWallAlignedHandle(-88, 44, 12, 'back', true, 18);
+    addWallAlignedHandle(-88, 56, 12, 'back', true, 18);
+    addWallAlignedHandle(-64, 44, 12, 'back', true, 18);
+    addWallAlignedHandle(-64, 56, 12, 'back', true, 18);
+
+    // 2. 캐비넷 3, 4: 폭 각 24", 깊이 24" 표준 타워장 (X: -60 ~ -12)
+    createBox(48, 4, 21, -60, 0, 0, toeKickMat, false);
+    createBox(48, 80, 24, -60, 4, 0, woodCabMat);
+    createBox(0.3, 80, 0.4, -36, 4, 23.8, gapMat);
+    createBox(48, 0.3, 0.4, -60, 48, 23.8, gapMat);
+    addWallAlignedHandle(-40, 44, 24, 'back', true, 18);
+    addWallAlignedHandle(-40, 56, 24, 'back', true, 18);
+    addWallAlignedHandle(-16, 44, 24, 'back', true, 18);
+    addWallAlignedHandle(-16, 56, 24, 'back', true, 18);
+
+    // 3. 냉장고: 폭 36" (X: -12 ~ 24, 깊이 29.5")
+    const fridgeX = -12;
+    createBox(35.5, 72, 29.5, fridgeX + 0.25, 0, 0, brushedSSMat);
+    createBox(0.2, 42, 0.4, fridgeX + 17.75, 30, 29.6, gapMat);
+    createBox(35.5, 0.2, 0.4, fridgeX + 0.25, 30, 29.6, gapMat);
+    addWallAlignedHandle(fridgeX + 16.5, 52, 29.5, 'back', true, 28);
+    addWallAlignedHandle(fridgeX + 19.0, 52, 29.5, 'back', true, 28);
+    addWallAlignedHandle(fridgeX + 17.75, 26, 29.5, 'back', false, 18);
+    // 냉장고 상부장
+    createBox(36, 12, 24, fridgeX, 72, 0, woodCabMat);
+    createBox(0.3, 12, 0.4, fridgeX + 18, 72, 23.8, gapMat);
+    addWallAlignedHandle(fridgeX + 16, 75, 24, 'back', false, 8);
+    addWallAlignedHandle(fridgeX + 20, 75, 24, 'back', false, 8);
+
+    // 4. 식기세척기: 폭 24" (X: 24 ~ 48, 깊이 24")
+    const dwX = 24;
+    createBox(23.6, 30.5, 23.5, dwX + 0.2, 4, 0, brushedSSMat);
+    createBox(23.6, 3.5, 23.6, dwX + 0.2, 31, 0, darkSSMat);
+    addWallAlignedHandle(dwX + 12, 30, 23.6, 'back', false, 16);
+    createBox(24, 1.5, 25.5, dwX, 34.5, 0, graniteCounterMat);
+    // 식세기 상부장
+    createBox(24, 30, 12, dwX, 54, 0, woodCabMat);
+    createBox(0.2, 30, 0.3, dwX + 12, 54, 11.9, gapMat);
+    addWallAlignedHandle(dwX + 10, 60, 12, 'back', true, 5);
+    addWallAlignedHandle(dwX + 14, 60, 12, 'back', true, 5);
+
+    // 5. 싱크대 캐비넷 및 언더마운트 싱크: 폭 36" (X: 48 ~ 84)
+    const sinkCabX = 48;
+    createBox(36, 4, 21, sinkCabX, 0, 0, toeKickMat, false);
+    createBox(36, 30.5, 23.5, sinkCabX, 4, 0, woodCabMat);
+    createBox(0.2, 30.5, 0.3, sinkCabX + 18, 4, 23.4, gapMat);
+    addWallAlignedHandle(sinkCabX + 16, 28, 23.5, 'back', true, 8);
+    addWallAlignedHandle(sinkCabX + 20, 28, 23.5, 'back', true, 8);
+
+    // 싱크대 상판 & 개수대
+    createBox(4, 1.5, 25.5, sinkCabX, 34.5, 0, graniteCounterMat);
+    createBox(4, 1.5, 25.5, sinkCabX + 32, 34.5, 0, graniteCounterMat);
+    createBox(28, 1.5, 4.5, sinkCabX + 4, 34.5, 0, graniteCounterMat);
+    createBox(28, 1.5, 4.5, sinkCabX + 4, 34.5, 21, graniteCounterMat);
+
+    const sinkDepth = 9;
+    const sinkY = 34.5 - sinkDepth;
+    createBox(28, 0.4, 16.5, sinkCabX + 4, sinkY, 4.5, brushedSSMat);
+    createBox(28, sinkDepth, 0.4, sinkCabX + 4, sinkY, 4.5, brushedSSMat);
+    createBox(28, sinkDepth, 0.4, sinkCabX + 4, sinkY, 20.6, brushedSSMat);
+    createBox(0.4, sinkDepth, 16.5, sinkCabX + 4, sinkY, 4.5, brushedSSMat);
+    createBox(0.4, sinkDepth, 16.5, sinkCabX + 31.6, sinkY, 4.5, brushedSSMat);
+    createBox(3.5, 0.2, 3.5, sinkCabX + 16.2, sinkY + 0.1, 11, darkSSMat);
+
+    // 싱크 수전
+    const faucetGroup = new THREE.Group();
+    const baseCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 3, 16), brushedSSMat);
+    baseCyl.position.set(0, 1.5, 0);
+    faucetGroup.add(baseCyl);
+    const neckCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(0, 3, 0),
+      new THREE.Vector3(0, 14, 0),
+      new THREE.Vector3(0, 14, 6),
+      new THREE.Vector3(0, 8.5, 6.5)
+    );
+    const neckMesh = new THREE.Mesh(new THREE.TubeGeometry(neckCurve, 24, 0.45, 16, false), brushedSSMat);
+    faucetGroup.add(neckMesh);
+    const leverMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.5, 8), brushedSSMat);
+    leverMesh.rotation.z = Math.PI / 4;
+    leverMesh.position.set(1.2, 2.2, 0);
+    faucetGroup.add(leverMesh);
+    faucetGroup.position.set(sinkCabX + 18, 36, 2.5);
+    scene.add(faucetGroup);
+
+    // 6. 조리/준비대 서랍장 (X: 84 ~ 120, 폭 36")
+    const prepX = 84;
+    createBox(36, 4, 21, prepX, 0, 0, toeKickMat, false);
+    createBox(36, 30.5, 23.5, prepX, 4, 0, woodCabMat);
+    createBox(36, 0.2, 0.3, prepX, 20, 23.4, gapMat);
+    createBox(36, 1.5, 25.5, prepX, 34.5, 0, graniteCounterMat);
+    addWallAlignedHandle(prepX + 18, 30, 23.5, 'back', false, 8);
+    addWallAlignedHandle(prepX + 18, 16, 23.5, 'back', false, 8);
+
+    // 7. 코너 베이스 캐비넷 (X: 120 ~ 151, 폭 31")
+    const cornerX = 120;
+    createBox(31, 4, 21, cornerX, 0, 0, toeKickMat, false);
+    createBox(31, 30.5, 32, cornerX, 4, 0, woodCabMat);
+    createBox(31, 1.5, 32, cornerX, 34.5, 0, graniteCounterMat);
+    addWallAlignedHandle(cornerX + 15, 20, 24, 'back', true, 5);
+
+    // 북쪽 채광창 (싱크대 위 중심: X: 52 ~ 112)
+    createBox(60, 42, 2.5, 52, 42, -1.2, windowFrameMat);
+    createBox(56, 38, 0.5, 54, 44, -0.2, glassMat);
+    createBox(2, 38, 1, 81, 44, -0.2, windowFrameMat);
+
+    // ==========================================
+    // 동쪽 조리벽면 & 오븐 타워 & 매립형 후드
+    // ==========================================
+    createBox(21, 4, 82, 130, 0, 32, toeKickMat, false);
+    createBox(23.5, 30.5, 20, 126.5, 4, 32, woodCabMat);
+    createBox(25.5, 1.5, 20, 124.5, 34.5, 32, graniteCounterMat);
+    addWallAlignedHandle(126.5, 22, 42, 'right', false, 6);
+
+    createBox(23.5, 30.5, 30, 126.5, 4, 52, woodCabMat);
+    createBox(0.3, 0.2, 30, 126.3, 20, 52, gapMat);
+    createBox(25.5, 1.5, 30, 124.5, 34.5, 52, graniteCounterMat);
+    addWallAlignedHandle(126.5, 30, 67, 'right', false, 12);
+    addWallAlignedHandle(126.5, 16, 67, 'right', false, 12);
+
+    createBox(21, 0.4, 28, 126.5, 36, 53, cooktopGlass);
+    const burnerCoords = [
+      { x: 132, z: 59, r: 2.2 },
+      { x: 141, z: 60, r: 1.8 },
+      { x: 132, z: 73, r: 1.8 },
+      { x: 141, z: 74, r: 2.4 }
+    ];
+    burnerCoords.forEach(b => {
+      const ring = new THREE.Mesh(new THREE.CylinderGeometry(b.r, b.r, 0.5, 16), burnerMat);
+      ring.position.set(b.x, 36.4, b.z);
+      scene.add(ring);
+    });
+
+    createBox(23.5, 30.5, 32, 126.5, 4, 82, woodCabMat);
+    createBox(0.3, 0.2, 32, 126.3, 20, 82, gapMat);
+    createBox(25.5, 1.5, 32, 124.5, 34.5, 82, graniteCounterMat);
+    addWallAlignedHandle(126.5, 22, 98, 'right', false, 10);
+
+    createBox(21.5, 4, 24, 128.5, 0, 114, toeKickMat, false);
+    createBox(23.5, 12.5, 24, 126.5, 4, 114, woodCabMat);
+    addWallAlignedHandle(126.5, 10.5, 126, 'right', false, 12);
+
+    createBox(23.0, 26, 23.5, 127.0, 16.5, 114.2, darkSSMat);
+    createBox(0.4, 25.6, 23.0, 126.2, 16.7, 114.5, darkSSMat);
+    createBox(0.5, 18, 20.0, 126.1, 20.5, 116.0, brushedSSMat);
+    addWallAlignedHandle(126.0, 39, 126, 'right', false, 16);
+
+    createBox(23.5, 3, 24, 126.5, 42.5, 114, woodCabMat);
+
+    createBox(23.0, 18, 23.5, 127.0, 45.5, 114.2, darkSSMat);
+    createBox(0.4, 17.6, 23.0, 126.2, 45.7, 114.5, darkSSMat);
+    createBox(0.5, 11, 20.0, 126.1, 49.0, 116.0, brushedSSMat);
+    addWallAlignedHandle(126.0, 59, 126, 'right', false, 14);
+
+    createBox(23.5, 20.5, 24, 126.5, 63.5, 114, woodCabMat);
+    addWallAlignedHandle(126.5, 72, 126, 'right', false, 12);
+
+    createBox(24.5, 105.0, 1.2, 126.0, 1.5, 138.15, translucentWallMat);
+    createBox(25.0, 1.5, 1.6, 126.0, 0, 138.0, windowFrameMat);
+    createBox(25.0, 1.5, 1.6, 126.0, 106.5, 138.0, windowFrameMat);
+    createBox(1.2, 108, 1.6, 126.0, 0, 138.0, windowFrameMat);
+
+    createBox(12, 30, 24, 138, 54, 0, woodCabMat);
+    addWallAlignedHandle(138, 60, 12, 'right', true, 5);
+
+    createBox(12, 30, 28, 138, 54, 24, woodCabMat);
+    addWallAlignedHandle(138, 60, 38, 'right', true, 5);
+
+    createBox(12, 30, 30, 138, 54, 52, woodCabMat);
+    createBox(0.2, 30, 0.3, 137.8, 54, 67, gapMat);
+    addWallAlignedHandle(138, 60, 60, 'right', true, 5);
+    addWallAlignedHandle(138, 60, 74, 'right', true, 5);
+    createBox(11, 0.8, 28, 138.5, 53.4, 53, brushedSSMat);
+
+    createBox(12, 30, 32, 138, 54, 82, woodCabMat);
+    addWallAlignedHandle(138, 60, 98, 'right', true, 5);
+
+    // ==========================================
+    // 중앙 아일랜드 (72"W x 48"D)
+    // ==========================================
+    createBox(72, 4, 42, 16.5, 0, 70.5, toeKickMat, false);
+
+    createBox(72, 30.5, 24, 16.5, 4, 67.5, woodCabMat);
+    createBox(72, 0.2, 0.3, 16.5, 20, 67.4, gapMat);
+    createBox(0.2, 30.5, 0.3, 40.5, 4, 67.4, gapMat);
+    createBox(0.2, 30.5, 0.3, 64.5, 4, 67.4, gapMat);
+
+    addWallAlignedHandle(28.5, 30, 67.5, 'back', false, 8);
+    addWallAlignedHandle(28.5, 14, 67.5, 'back', false, 8);
+    addWallAlignedHandle(52.5, 30, 67.5, 'back', false, 8);
+    addWallAlignedHandle(52.5, 14, 67.5, 'back', false, 8);
+    addWallAlignedHandle(76.5, 30, 67.5, 'back', false, 8);
+    addWallAlignedHandle(76.5, 14, 67.5, 'back', false, 8);
+
+    createBox(72, 30.5, 24, 16.5, 4, 91.5, woodCabMat);
+    createBox(0.2, 30.5, 0.3, 40.5, 4, 115.6, gapMat);
+    createBox(0.2, 30.5, 0.3, 64.5, 4, 115.6, gapMat);
+
+    addWallAlignedHandle(28.5, 24, 115.5, 'front', true, 8);
+    addWallAlignedHandle(52.5, 24, 115.5, 'front', true, 8);
+    addWallAlignedHandle(76.5, 24, 115.5, 'front', true, 8);
+
+    createBox(72, 1.5, 48, 16.5, 34.5, 67.5, graniteCounterMat);
+
+    // ==========================================
+    // 서쪽 통로 식탁 & 의자
+    // ==========================================
+    const tableX = -58.5;
+    const tableZ = 55.5;
+    const tableW = 36;
+    const tableD = 72;
+    const tableH = 30;
+
+    createBox(tableW, 1.5, tableD, tableX, tableH - 1.5, tableZ, tableWoodMat);
+    createBox(3, tableH - 1.5, 3, tableX + 2, 0, tableZ + 2, chairFrameMat);
+    createBox(3, tableH - 1.5, 3, tableX + tableW - 5, 0, tableZ + 2, chairFrameMat);
+    createBox(3, tableH - 1.5, 3, tableX + 2, 0, tableZ + tableD - 5, chairFrameMat);
+    createBox(3, tableH - 1.5, 3, tableX + tableW - 5, 0, tableZ + tableD - 5, chairFrameMat);
+
+    function createRotatedDiningChair(x, z, facing = 'east') {
+      const cW = 18;
+      const cD = 18;
+      const seatH = 18;
+      const backH = 34;
+      const legThick = 1.5;
+
+      createBox(legThick, seatH, legThick, x + 1, 0, z + 1, chairFrameMat);
+      createBox(legThick, seatH, legThick, x + cD - 1 - legThick, 0, z + 1, chairFrameMat);
+      createBox(legThick, seatH, legThick, x + 1, 0, z + cW - 1 - legThick, chairFrameMat);
+      createBox(legThick, seatH, legThick, x + cD - 1 - legThick, 0, z + cW - 1 - legThick, chairFrameMat);
+
+      createBox(cD, 2, cW, x, seatH, z, chairCushionMat);
+
+      if (facing === 'east') {
+        createBox(1.5, backH - seatH, cW, x, seatH + 2, z, chairFrameMat);
+      } else {
+        createBox(1.5, backH - seatH, cW, x + cD - 1.5, seatH + 2, z, chairFrameMat);
+      }
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const chairZ = tableZ + 5 + i * 22;
+      createRotatedDiningChair(tableX - 6, chairZ, 'east');
+      createRotatedDiningChair(tableX + tableW - 12, chairZ, 'west');
+    }
+
+    // ==========================================
+    // 소파 하부 러그 & 카우치
+    // ==========================================
+    const rugMesh = new THREE.Mesh(new THREE.PlaneGeometry(120, 96), rugMat);
+    rugMesh.rotation.x = -Math.PI / 2;
+    rugMesh.position.set(52.5, 0.08, 196);
+    rugMesh.receiveShadow = true;
+    scene.add(rugMesh);
+
+    const couchX = 10.5;
+    const couchZ = 156;
+
+    createBox(84, 6, 36, couchX, 4, couchZ, couchFabricMat);
+    createBox(84, 22, 8, couchX, 10, couchZ, couchFabricMat);
+    createBox(6, 16, 28, couchX, 10, couchZ + 8, couchFabricMat);
+
+    for (let i = 0; i < 2; i++) {
+      createBox(25, 6, 27.6, couchX + 6.2 + i * 26, 10, couchZ + 8.2, cushionFabricMat);
+      createBox(25, 15, 6, couchX + 6.2 + i * 26, 16, couchZ + 8, cushionFabricMat);
+    }
+
+    const chaiseX = couchX + 58;
+    createBox(32, 6, 32, chaiseX - 6, 4, couchZ + 36, couchFabricMat);
+    createBox(25.6, 6, 59.6, chaiseX - 5.8, 10, couchZ + 8.2, cushionFabricMat);
+    createBox(25.6, 15, 6, chaiseX - 5.8, 16, couchZ + 8, cushionFabricMat);
+    createBox(6, 16, 60, chaiseX + 20, 10, couchZ + 8, couchFabricMat);
+
+    createBox(3, 4, 3, couchX + 2, 0, couchZ + 2, couchLegMat);
+    createBox(3, 4, 3, couchX + 79, 0, couchZ + 2, couchLegMat);
+    createBox(3, 4, 3, couchX + 2, 0, couchZ + 31, couchLegMat);
+    createBox(3, 4, 3, chaiseX + 20, 0, couchZ + 63, couchLegMat);
+    createBox(3, 4, 3, chaiseX - 5, 0, couchZ + 63, couchLegMat);
+
+    // 창 리사이즈
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
