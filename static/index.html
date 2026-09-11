@@ -1,2 +1,143 @@
-<a href='static/1st.html'>1st</a><br>
-<a href='static/2nd.html'>2nd</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Inventory Management System</title>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+
+    <!-- Authentication Container (shown when logged out) -->
+    <div id="auth-container" class="auth-container">
+        <div style="font-size: 3rem; color: var(--accent-color); margin-bottom: 1rem;">
+            <i class="fas fa-boxes-stacked"></i>
+        </div>
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-desc">Please log in to manage your inventory</p>
+        
+        <form id="login-form" style="width: 100%;">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" class="form-control" placeholder="Enter username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Enter password" required>
+            </div>
+            <button type="submit" id="auth-submit-btn" class="btn btn-primary">Log In</button>
+        </form>
+        
+        <div id="auth-toggle-text" class="auth-toggle">
+            Don't have an account? <span>Register here</span>
+        </div>
+    </div>
+
+    <!-- Main Application Wrapper (shown when logged in) -->
+    <div id="app-wrapper" class="app-wrapper" style="display: none;">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="app-logo">
+                    <i class="fas fa-boxes-packing"></i>
+                    <span>Inventory Hub</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span class="nav-title">Houses & locations</span>
+                    <button class="btn btn-secondary btn-sm" style="padding: 2px 6px;" onclick="showCreateHouseModal()" title="Add House">
+                        <i class="fas fa-plus" style="font-size: 0.75rem;"></i>
+                    </button>
+                </div>
+                <div id="house-list" style="display: flex; flex-direction: column; gap: 0.4rem;">
+                    <!-- Dynamically populated -->
+                </div>
+                
+                <span class="nav-title" style="margin-top: 1.5rem;">Visual layout</span>
+                <a href="/static/1st.html" class="nav-item" target="_blank" style="text-decoration: none;">
+                    <div class="nav-item-content">
+                        <i class="fas fa-cube"></i>
+                        <span>3D Floor Plan (1F)</span>
+                    </div>
+                </a>
+                <a href="/static/2nd.html" class="nav-item" target="_blank" style="text-decoration: none;">
+                    <div class="nav-item-content">
+                        <i class="fas fa-couch"></i>
+                        <span>3D Living & Kitchen</span>
+                    </div>
+                </a>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <i class="fas fa-user-circle"></i>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);" id="profile-username">Username</div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">Active Member</div>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn btn-secondary btn-sm" style="width: 100%;">
+                    <i class="fas fa-sign-out-alt"></i> Log Out
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Pane -->
+        <main class="main-content">
+            <header class="top-navbar">
+                <div id="breadcrumb-path" class="breadcrumb">
+                    <span>Inventory App</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem; width: 45%; max-width: 400px; position: relative;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; color: var(--text-secondary); pointer-events: none;"></i>
+                    <input type="text" id="global-search-input" class="form-control" placeholder="Search items across all houses..." style="padding-left: 2.25rem;">
+                </div>
+                <div class="top-actions">
+                    <span id="shared-status" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+                </div>
+            </header>
+            
+            <div class="view-container">
+                <div class="dashboard-header">
+                    <h1 id="view-title">Locations</h1>
+                    <div id="view-actions">
+                        <!-- Dynamic CRUD buttons -->
+                    </div>
+                </div>
+                
+                <div id="view-content">
+                    <!-- Dynamic rendering area: list of Rooms, list of Furniture, or table of items -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Reusable Modal overlay & Dialogue -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button id="modal-close-btn" class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Modal forms/content dynamically loaded -->
+            </div>
+            <div class="modal-footer">
+                <button id="modal-cancel-btn" class="btn btn-secondary">Cancel</button>
+                <button id="modal-save-btn" class="btn btn-primary" style="width: auto; min-width: 100px;">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container for dynamic Toast alerts -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Application Script -->
+    <script src="/static/app.js?v=6"></script>
+</body>
+</html>
