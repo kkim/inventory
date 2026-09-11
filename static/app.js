@@ -826,35 +826,35 @@ function closeModal() {
 function showCreateHouseModal() {
     const html = `
         <div class="form-group">
-            <label for="modal-house-name">House Name</label>
-            <input type="text" id="modal-house-name" class="form-control" placeholder="e.g. My Villa, Office" required>
+            <label for="modal-house-names">House Name(s) (One per line)</label>
+            <textarea id="modal-house-names" class="form-control" rows="4" placeholder="e.g.&#10;My Villa&#10;Office" required></textarea>
         </div>
         <div class="form-group">
-            <label for="modal-house-address">Address</label>
+            <label for="modal-house-address">Address (Applies to all)</label>
             <input type="text" id="modal-house-address" class="form-control" placeholder="e.g. 123 Luxury Ave">
         </div>
     `;
     
-    showModal('Add New House', html, async () => {
-        const name = document.getElementById('modal-house-name').value.trim();
+    showModal('Add New House(s)', html, async () => {
+        const namesVal = document.getElementById('modal-house-names').value;
+        const names = namesVal.split('\n').map(n => n.trim()).filter(n => n.length > 0);
         const address = document.getElementById('modal-house-address').value.trim();
         
-        if (!name) {
-            showToast('House name is required', 'error');
+        if (names.length === 0) {
+            showToast('At least one House name is required', 'error');
             return false;
         }
         
-        const response = await authedFetch('/houses', {
-            method: 'POST',
-            body: JSON.stringify({ name, address })
-        });
-        
-        if (response && response.ok) {
-            showToast('House created successfully!');
-            loadHouses();
-            return true;
+        for (const name of names) {
+            await authedFetch('/houses', {
+                method: 'POST',
+                body: JSON.stringify({ name, address })
+            });
         }
-        return false;
+        
+        showToast(`Successfully created ${names.length} house(s)!`);
+        loadHouses();
+        return true;
     });
 }
 
@@ -950,38 +950,39 @@ function showCreateRoomModal() {
 function showCreateRoomModalForHouse(houseId) {
     const html = `
         <div class="form-group">
-            <label for="modal-room-name">Room Name</label>
-            <input type="text" id="modal-room-name" class="form-control" placeholder="e.g. Master Bedroom, Garage" required>
+            <label for="modal-room-names">Room Name(s) (One per line)</label>
+            <textarea id="modal-room-names" class="form-control" rows="4" placeholder="e.g.&#10;Master Bedroom&#10;Garage" required></textarea>
         </div>
     `;
     
-    showModal('Add Room', html, async () => {
-        const name = document.getElementById('modal-room-name').value.trim();
-        if (!name) {
-            showToast('Room name is required', 'error');
+    showModal('Add Room(s)', html, async () => {
+        const namesVal = document.getElementById('modal-room-names').value;
+        const names = namesVal.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+        
+        if (names.length === 0) {
+            showToast('At least one Room name is required', 'error');
             return false;
         }
         
-        const response = await authedFetch('/rooms', {
-            method: 'POST',
-            body: JSON.stringify({ name, house_id: houseId })
-        });
-        
-        if (response && response.ok) {
-            showToast('Room added successfully!');
-            // If currently viewing the target house, reload rooms view
-            if (state.selectedHouse && state.selectedHouse.id === houseId) {
-                // Return to house/rooms root view
-                state.selectedRoom = null;
-                state.selectedFurniture = null;
-                state.selectedCompartment = null;
-                loadRooms();
-            } else {
-                loadHouses();
-            }
-            return true;
+        for (const name of names) {
+            await authedFetch('/rooms', {
+                method: 'POST',
+                body: JSON.stringify({ name, house_id: houseId })
+            });
         }
-        return false;
+        
+        showToast(`Added ${names.length} room(s) successfully!`);
+        // If currently viewing the target house, reload rooms view
+        if (state.selectedHouse && state.selectedHouse.id === houseId) {
+            // Return to house/rooms root view
+            state.selectedRoom = null;
+            state.selectedFurniture = null;
+            state.selectedCompartment = null;
+            loadRooms();
+        } else {
+            loadHouses();
+        }
+        return true;
     });
 }
 
@@ -1028,29 +1029,30 @@ async function deleteRoom(id) {
 function showCreateFurnitureModal() {
     const html = `
         <div class="form-group">
-            <label for="modal-furniture-name">Furniture Name</label>
-            <input type="text" id="modal-furniture-name" class="form-control" placeholder="e.g. Wardrobe, Kitchen Sink" required>
+            <label for="modal-furniture-names">Furniture Name(s) (One per line)</label>
+            <textarea id="modal-furniture-names" class="form-control" rows="4" placeholder="e.g.&#10;Wardrobe&#10;Kitchen Sink" required></textarea>
         </div>
     `;
     
     showModal('Add Furniture', html, async () => {
-        const name = document.getElementById('modal-furniture-name').value.trim();
-        if (!name) {
-            showToast('Furniture name is required', 'error');
+        const namesVal = document.getElementById('modal-furniture-names').value;
+        const names = namesVal.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+        
+        if (names.length === 0) {
+            showToast('At least one Furniture name is required', 'error');
             return false;
         }
         
-        const response = await authedFetch('/furniture', {
-            method: 'POST',
-            body: JSON.stringify({ name, room_id: state.selectedRoom.id })
-        });
-        
-        if (response && response.ok) {
-            showToast('Furniture added!');
-            loadFurniture();
-            return true;
+        for (const name of names) {
+            await authedFetch('/furniture', {
+                method: 'POST',
+                body: JSON.stringify({ name, room_id: state.selectedRoom.id })
+            });
         }
-        return false;
+        
+        showToast(`Added ${names.length} furniture item(s)!`);
+        loadFurniture();
+        return true;
     });
 }
 
@@ -1097,29 +1099,30 @@ async function deleteFurniture(id) {
 function showCreateCompartmentModal() {
     const html = `
         <div class="form-group">
-            <label for="modal-comp-name">Compartment Name</label>
-            <input type="text" id="modal-comp-name" class="form-control" placeholder="e.g. Top Drawer, Shelf A" required>
+            <label for="modal-comp-names">Compartment Name(s) (One per line)</label>
+            <textarea id="modal-comp-names" class="form-control" rows="4" placeholder="e.g.&#10;Top Drawer&#10;Shelf A" required></textarea>
         </div>
     `;
     
-    showModal('Add Compartment', html, async () => {
-        const name = document.getElementById('modal-comp-name').value.trim();
-        if (!name) {
-            showToast('Compartment name is required', 'error');
+    showModal('Add Compartment(s)', html, async () => {
+        const namesVal = document.getElementById('modal-comp-names').value;
+        const names = namesVal.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+        
+        if (names.length === 0) {
+            showToast('At least one Compartment name is required', 'error');
             return false;
         }
         
-        const response = await authedFetch('/compartments', {
-            method: 'POST',
-            body: JSON.stringify({ name, furniture_id: state.selectedFurniture.id })
-        });
-        
-        if (response && response.ok) {
-            showToast('Compartment added!');
-            loadCompartments();
-            return true;
+        for (const name of names) {
+            await authedFetch('/compartments', {
+                method: 'POST',
+                body: JSON.stringify({ name, furniture_id: state.selectedFurniture.id })
+            });
         }
-        return false;
+        
+        showToast(`Added ${names.length} compartment(s)!`);
+        loadCompartments();
+        return true;
     });
 }
 
@@ -1166,21 +1169,22 @@ async function deleteCompartment(id) {
 function showCreateItemModal() {
     const html = `
         <div class="form-group">
-            <label for="modal-item-name">Item Name</label>
-            <input type="text" id="modal-item-name" class="form-control" placeholder="e.g. Hammer, Batteries" required>
+            <label for="modal-item-names">Item Name(s) (One per line)</label>
+            <textarea id="modal-item-names" class="form-control" rows="4" placeholder="e.g.&#10;Hammer&#10;Batteries" required></textarea>
         </div>
         <div class="form-group">
-            <label for="modal-item-count">Quantity / Count</label>
+            <label for="modal-item-count">Quantity / Count (Applies to all)</label>
             <input type="number" id="modal-item-count" class="form-control" value="1" min="0" required>
         </div>
     `;
     
-    showModal('Add Item', html, async () => {
-        const name = document.getElementById('modal-item-name').value.trim();
+    showModal('Add Item(s)', html, async () => {
+        const namesVal = document.getElementById('modal-item-names').value;
+        const names = namesVal.split('\n').map(n => n.trim()).filter(n => n.length > 0);
         const countVal = parseInt(document.getElementById('modal-item-count').value);
         
-        if (!name) {
-            showToast('Item name is required', 'error');
+        if (names.length === 0) {
+            showToast('At least one Item name is required', 'error');
             return false;
         }
         if (isNaN(countVal) || countVal < 0) {
@@ -1188,17 +1192,16 @@ function showCreateItemModal() {
             return false;
         }
         
-        const response = await authedFetch('/items', {
-            method: 'POST',
-            body: JSON.stringify({ name, count: countVal, compartment_id: state.selectedCompartment.id })
-        });
-        
-        if (response && response.ok) {
-            showToast('Item added!');
-            loadItems();
-            return true;
+        for (const name of names) {
+            await authedFetch('/items', {
+                method: 'POST',
+                body: JSON.stringify({ name, count: countVal, compartment_id: state.selectedCompartment.id })
+            });
         }
-        return false;
+        
+        showToast(`Added ${names.length} item(s) successfully!`);
+        loadItems();
+        return true;
     });
 }
 
