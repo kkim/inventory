@@ -31,6 +31,10 @@ const dom = {
     authDesc: document.getElementById('auth-desc'),
     authToggleText: document.getElementById('auth-toggle-text'),
     authSubmitBtn: document.getElementById('auth-submit-btn'),
+    emailGroup: document.getElementById('email-group'),
+    emailInput: document.getElementById('email'),
+    passwordLabel: document.getElementById('password-label'),
+    forgotPasswordToggle: document.getElementById('forgot-password-toggle'),
     
     // Sidebar & Profile
     profileUsername: document.getElementById('profile-username'),
@@ -56,8 +60,49 @@ const dom = {
     toastContainer: document.getElementById('toast-container')
 };
 
-// Mode: true for login, false for register
-let isLoginMode = true;
+// Auth Mode state: 'login', 'register', or 'reset'
+let authMode = 'login';
+
+function switchAuthMode(newMode) {
+    authMode = newMode;
+    
+    // Clear form inputs on mode switch
+    dom.usernameInput.value = '';
+    dom.emailInput.value = '';
+    dom.passwordInput.value = '';
+    
+    if (authMode === 'login') {
+        dom.authTitle.textContent = 'Welcome Back';
+        dom.authDesc.textContent = 'Please log in to manage your inventory';
+        dom.emailGroup.style.display = 'none';
+        dom.emailInput.removeAttribute('required');
+        dom.passwordLabel.textContent = 'Password';
+        dom.passwordInput.placeholder = 'Enter password';
+        dom.authToggleText.innerHTML = "Don't have an account? <span>Register here</span>";
+        dom.forgotPasswordToggle.style.display = 'block';
+        dom.authSubmitBtn.textContent = 'Log In';
+    } else if (authMode === 'register') {
+        dom.authTitle.textContent = 'Create Account';
+        dom.authDesc.textContent = 'Register a new account to start tracking';
+        dom.emailGroup.style.display = 'block';
+        dom.emailInput.setAttribute('required', 'required');
+        dom.passwordLabel.textContent = 'Password';
+        dom.passwordInput.placeholder = 'Enter password';
+        dom.authToggleText.innerHTML = "Already have an account? <span>Log in here</span>";
+        dom.forgotPasswordToggle.style.display = 'block';
+        dom.authSubmitBtn.textContent = 'Register';
+    } else if (authMode === 'reset') {
+        dom.authTitle.textContent = 'Reset Password';
+        dom.authDesc.textContent = 'Verify your username and email to set a new password';
+        dom.emailGroup.style.display = 'block';
+        dom.emailInput.setAttribute('required', 'required');
+        dom.passwordLabel.textContent = 'New Password';
+        dom.passwordInput.placeholder = 'Enter new password';
+        dom.authToggleText.innerHTML = "Remembered your password? <span>Log in here</span>";
+        dom.forgotPasswordToggle.style.display = 'none';
+        dom.authSubmitBtn.textContent = 'Reset Password';
+    }
+}
 
 // Initialize App
 function init() {
@@ -72,7 +117,15 @@ function setupEventListeners() {
     dom.loginForm.addEventListener('submit', handleAuthSubmit);
     dom.authToggleText.addEventListener('click', (e) => {
         console.log("Auth toggle clicked!");
-        toggleAuthMode();
+        if (authMode === 'login') {
+            switchAuthMode('register');
+        } else {
+            switchAuthMode('login');
+        }
+    });
+    dom.forgotPasswordToggle.addEventListener('click', (e) => {
+        console.log("Forgot password clicked!");
+        switchAuthMode('reset');
     });
     dom.logoutBtn.addEventListener('click', handleLogout);
     
@@ -101,55 +154,63 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Toggle Login / Register
-function toggleAuthMode() {
-    isLoginMode = !isLoginMode;
-    if (isLoginMode) {
-        dom.authTitle.textContent = 'Welcome Back';
-        dom.authDesc.textContent = 'Please log in to manage your inventory';
-        dom.authToggleText.innerHTML = "Don't have an account? <span>Register here</span>";
-        dom.authSubmitBtn.textContent = 'Log In';
-    } else {
-        dom.authTitle.textContent = 'Create Account';
-        dom.authDesc.textContent = 'Register a new account to start tracking';
-        dom.authToggleText.innerHTML = "Already have an account? <span>Log in here</span>";
-        dom.authSubmitBtn.textContent = 'Register';
-    }
-}
-
-// Handle Login or Registration
+// Handle Login, Registration, or Password Reset
 async function handleAuthSubmit(e) {
     e.preventDefault();
     const username = dom.usernameInput.value.trim();
     const password = dom.passwordInput.value.trim();
+    const email = dom.emailInput.value.trim();
     
     if (!username || !password) {
         showToast('Please enter both username and password', 'error');
         return;
     }
     
-    const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
+    if ((authMode === 'register' || authMode === 'reset') && !email) {
+        showToast('Please enter your email address', 'error');
+        return;
+    }
+    
+    let endpoint = '';
+    let bodyData = {};
+    
+    if (authMode === 'login') {
+        endpoint = '/auth/login';
+        bodyData = { username, password };
+    } else if (authMode === 'register') {
+        endpoint = '/auth/register';
+        bodyData = { username, email, password };
+    } else if (authMode === 'reset') {
+        endpoint = '/auth/reset-password';
+        bodyData = { username, email, new_password: password };
+    }
     
     try {
         const response = await fetch(`${API_BASE}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify(bodyData)
         });
         
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.detail || 'Authentication failed');
+            throw new Error(data.detail || 'Operation failed');
         }
         
-        // Success
+        if (authMode === 'reset') {
+            showToast('Password reset successful! You can now log in.');
+            switchAuthMode('login');
+            return;
+        }
+        
+        // Success for Login/Register
         state.userId = data.id;
         state.username = data.username;
         localStorage.setItem('inventory_user_id', data.id);
         localStorage.setItem('inventory_username', data.username);
         
-        showToast(isLoginMode ? `Logged in as ${data.username}` : 'Registration successful! Logged in.');
+        showToast(authMode === 'login' ? `Logged in as ${data.username}` : 'Registration successful! Logged in.');
         updateUIForAuth();
     } catch (err) {
         showToast(err.message, 'error');

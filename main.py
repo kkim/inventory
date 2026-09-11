@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Header, Cookie, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 import models
@@ -11,6 +12,14 @@ from database import engine, get_db
 
 # Initialize database tables
 models.Base.metadata.create_all(bind=engine)
+
+# Auto-migration: ensure the 'email' column is added to any pre-existing 'users' table
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR"))
+except Exception:
+    # Column already exists or fresh database, safe to ignore
+    pass
 
 app = FastAPI(title="Inventory System API")
 
@@ -41,7 +50,7 @@ def register(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered",
         )
-    new_user = models.User(username=user_data.username, password=user_data.password)  # Plain text for simple auth as requested
+    new_user = models.User(username=user_data.username, email=user_data.email, password=user_data.password)  # Plain text for simple auth as requested
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -56,6 +65,23 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect username or password",
         )
     return user
+
+@app.post("/api/auth/reset-password")
+def reset_password(reset_data: schemas.UserResetPassword, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(
+        models.User.username == reset_data.username,
+        models.User.email == reset_data.email
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User with matching username and email not found"
+        )
+        
+    user.password = reset_data.new_password
+    db.commit()
+    return {"message": "Password reset successful"}
 
 @app.get("/api/auth/me", response_model=schemas.UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):

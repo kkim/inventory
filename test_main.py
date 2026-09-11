@@ -51,22 +51,35 @@ def client(db_session):
 
 def test_user_flow(client):
     # Register user 1
-    response = client.post("/api/auth/register", json={"username": "user1", "password": "pass1"})
+    response = client.post("/api/auth/register", json={"username": "user1", "email": "user1@example.com", "password": "pass1"})
     assert response.status_code == 201 or response.status_code == 211
     user1_id = response.json()["id"]
     assert response.json()["username"] == "user1"
 
     # Try duplicate registration
-    response = client.post("/api/auth/register", json={"username": "user1", "password": "pass1"})
+    response = client.post("/api/auth/register", json={"username": "user1", "email": "user1@example.com", "password": "pass1"})
     assert response.status_code == 400
 
-    # Login user 1
+    # Test Password Reset Flow
+    # 1. Reset with wrong email
+    response = client.post("/api/auth/reset-password", json={"username": "user1", "email": "wrong@example.com", "new_password": "newpass1"})
+    assert response.status_code == 404
+    
+    # 2. Reset with correct credentials
+    response = client.post("/api/auth/reset-password", json={"username": "user1", "email": "user1@example.com", "new_password": "newpass1"})
+    assert response.status_code == 200
+    
+    # 3. Login with old password should fail
     response = client.post("/api/auth/login", json={"username": "user1", "password": "pass1"})
+    assert response.status_code == 401
+    
+    # 4. Login with new password should succeed
+    response = client.post("/api/auth/login", json={"username": "user1", "password": "newpass1"})
     assert response.status_code == 200
     assert response.json()["id"] == user1_id
 
     # Register and login user 2
-    response = client.post("/api/auth/register", json={"username": "user2", "password": "pass2"})
+    response = client.post("/api/auth/register", json={"username": "user2", "email": "user2@example.com", "password": "pass2"})
     user2_id = response.json()["id"]
     
     # ----------------------------------------------------

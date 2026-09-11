@@ -4,11 +4,14 @@ from pydantic import BaseModel, Field
 # User Schemas
 class UserBase(BaseModel):
     username: str
+    email: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
+    email: str  # Required during registration for password reset capability
 
-class UserLogin(UserBase):
+class UserLogin(BaseModel):
+    username: str
     password: str
 
 class UserResponse(UserBase):
@@ -16,6 +19,11 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+class UserResetPassword(BaseModel):
+    username: str
+    email: str
+    new_password: str
 
 # House Schemas
 class HouseBase(BaseModel):
