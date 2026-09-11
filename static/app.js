@@ -47,6 +47,8 @@ const dom = {
     viewActions: document.getElementById('view-actions'),
     viewContent: document.getElementById('view-content'),
     globalSearchInput: document.getElementById('global-search-input'),
+    menuToggle: document.getElementById('menu-toggle'),
+    sidebarOverlay: document.getElementById('sidebar-overlay'),
     
     // Modal Dialogue
     modalOverlay: document.getElementById('modal-overlay'),
@@ -138,6 +140,25 @@ function setupEventListeners() {
     
     // Global Search Input
     dom.globalSearchInput.addEventListener('input', handleGlobalSearch);
+    
+    // Mobile Drawer Toggles
+    if (dom.menuToggle) {
+        dom.menuToggle.addEventListener('click', () => {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('open');
+            if (sidebar.classList.contains('open')) {
+                dom.sidebarOverlay.style.display = 'block';
+            } else {
+                dom.sidebarOverlay.style.display = 'none';
+            }
+        });
+    }
+    
+    if (dom.sidebarOverlay) {
+        dom.sidebarOverlay.addEventListener('click', () => {
+            closeSidebarOnMobile();
+        });
+    }
 }
 
 // Toast Notification Helper
@@ -224,6 +245,7 @@ function handleLogout() {
     localStorage.removeItem('inventory_username');
     updateUIForAuth();
     showToast('Logged out successfully');
+    closeSidebarOnMobile();
 }
 
 // Authenticated Fetch Wrapper
@@ -348,9 +370,10 @@ function selectHouse(house) {
     state.selectedRoom = null;
     state.selectedFurniture = null;
     state.selectedCompartment = null;
-    
+
     renderHousesSidebar();
     loadRooms();
+    closeSidebarOnMobile();
 }
 
 async function loadRooms() {
@@ -616,6 +639,14 @@ function goBackToCompartments() {
     loadCompartments();
 }
 
+function closeSidebarOnMobile() {
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        if (dom.sidebarOverlay) dom.sidebarOverlay.style.display = 'none';
+    }
+}
+
 // ----------------------------------------------------
 // Global Search & Navigation
 // ----------------------------------------------------
@@ -717,6 +748,7 @@ function renderSearchResults(results, query) {
 }
 
 async function navigateToItemLocation(houseId, roomId, furnitureId, compartmentId) {
+    closeSidebarOnMobile();
     const house = state.houses.find(h => h.id === houseId);
     if (!house) {
         showToast('House not found or accessible', 'error');
