@@ -135,16 +135,18 @@ def share_house(house_id: int, target_username: str, current_user: models.User =
     if not house or house not in current_user.houses:
         raise HTTPException(status_code=404, detail="House not found or not owned by user")
     
-    target_user = db.query(models.User).filter(models.User.username == target_username).first()
+    target_user = db.query(models.User).filter(
+        (models.User.username == target_username) | (models.User.email == target_username)
+    ).first()
     if not target_user:
         raise HTTPException(status_code=404, detail="Target user not found")
     
     if house in target_user.houses:
-        return {"message": f"House already shared with {target_username}"}
+        return {"message": f"House already shared with {target_user.username}"}
     
     target_user.houses.append(house)
     db.commit()
-    return {"message": f"House successfully shared with {target_username}"}
+    return {"message": f"House successfully shared with {target_user.username}"}
 
 # Room Endpoints
 @app.get("/api/rooms", response_model=List[schemas.RoomResponse])

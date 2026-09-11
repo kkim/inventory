@@ -988,15 +988,15 @@ function showShareModal(id, houseName) {
             Share "<strong>${escapeHtml(houseName)}</strong>" with another user of the inventory application. They will be able to view and manage all items inside.
         </p>
         <div class="form-group">
-            <label for="modal-share-username">Username to Share With</label>
-            <input type="text" id="modal-share-username" class="form-control" placeholder="Enter registration username" required>
+            <label for="modal-share-username">Username or Email to Share With</label>
+            <input type="text" id="modal-share-username" class="form-control" placeholder="Enter username or email" required>
         </div>
     `;
     
     showModal('Share House', html, async () => {
         const username = document.getElementById('modal-share-username').value.trim();
         if (!username) {
-            showToast('Username is required', 'error');
+            showToast('Username or email is required', 'error');
             return false;
         }
         

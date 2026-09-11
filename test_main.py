@@ -183,3 +183,36 @@ def test_user_flow(client):
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["name"] == "Remote Control"
+
+    # ----------------------------------------------------
+    # Multi-user Invite & Sharing by Email/Username Flow
+    # ----------------------------------------------------
+    # Register user 3
+    response = client.post("/api/auth/register", json={"username": "user3", "email": "user3@example.com", "password": "pass3"})
+    assert response.status_code in [201, 211]
+    user3_id = response.json()["id"]
+    headers3 = {"X-User-ID": str(user3_id)}
+
+    # User 3 should not have access to the house initially
+    response = client.get("/api/houses", headers=headers3)
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
+    # User 2 (who has shared access) invites User 3 using User 3's email address
+    response = client.post(f"/api/houses/{house_id}/share?target_username=user3@example.com", headers=headers2)
+    assert response.status_code == 200
+    assert "user3" in response.json()["message"]
+
+    # Now User 3 should have access to the house and rooms
+    response = client.get("/api/houses", headers=headers3)
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == house_id
+
+    # Try sharing with a non-existent user/email
+    response = client.post(f"/api/houses/{house_id}/share?target_username=nonexistent@example.com", headers=headers1)
+    assert response.status_code == 404
+
+    # Try sharing a house that the user does not have access to
+    response = client.post("/api/houses/9999/share?target_username=user1", headers=headers3)
+    assert response.status_code == 404
