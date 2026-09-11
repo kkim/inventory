@@ -32,6 +32,10 @@ class House(Base):
     users = relationship("User", secondary=user_house, back_populates="houses")
     rooms = relationship("Room", back_populates="house", cascade="all, delete-orphan", passive_deletes=True)
 
+    @property
+    def room_count(self) -> int:
+        return len(self.rooms) if self.rooms else 0
+
 class Room(Base):
     __tablename__ = "rooms"
 
@@ -42,6 +46,10 @@ class Room(Base):
     # Relationships
     house = relationship("House", back_populates="rooms")
     furniture = relationship("Furniture", back_populates="room", cascade="all, delete-orphan", passive_deletes=True)
+
+    @property
+    def furniture_count(self) -> int:
+        return len(self.furniture) if self.furniture else 0
 
 class Furniture(Base):
     __tablename__ = "furniture"
@@ -54,6 +62,10 @@ class Furniture(Base):
     room = relationship("Room", back_populates="furniture")
     compartments = relationship("Compartment", back_populates="furniture", cascade="all, delete-orphan", passive_deletes=True)
 
+    @property
+    def compartment_count(self) -> int:
+        return len(self.compartments) if self.compartments else 0
+
 class Compartment(Base):
     __tablename__ = "compartments"
 
@@ -64,6 +76,10 @@ class Compartment(Base):
     # Relationships
     furniture = relationship("Furniture", back_populates="compartments")
     items = relationship("Item", back_populates="compartment", cascade="all, delete-orphan", passive_deletes=True)
+
+    @property
+    def item_count(self) -> int:
+        return len(self.items) if self.items else 0
 
 class Item(Base):
     __tablename__ = "items"

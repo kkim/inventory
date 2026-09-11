@@ -39,6 +39,7 @@ class HouseUpdate(BaseModel):
 
 class HouseResponse(HouseBase):
     id: int
+    room_count: int = 0
 
     class Config:
         from_attributes = True
@@ -57,6 +58,7 @@ class RoomUpdate(BaseModel):
 
 class RoomResponse(RoomBase):
     id: int
+    furniture_count: int = 0
 
     class Config:
         from_attributes = True
@@ -75,6 +77,7 @@ class FurnitureUpdate(BaseModel):
 
 class FurnitureResponse(FurnitureBase):
     id: int
+    compartment_count: int = 0
 
     class Config:
         from_attributes = True
@@ -93,6 +96,7 @@ class CompartmentUpdate(BaseModel):
 
 class CompartmentResponse(CompartmentBase):
     id: int
+    item_count: int = 0
 
     class Config:
         from_attributes = True

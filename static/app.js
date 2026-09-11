@@ -300,8 +300,19 @@ async function loadHouses() {
     const response = await authedFetch('/houses');
     if (response && response.ok) {
         state.houses = await response.json();
+
+        // Sort houses by room count descending, then by name alphabetically
+        state.houses.sort((a, b) => {
+            const countA = a.room_count || 0;
+            const countB = b.room_count || 0;
+            if (countB !== countA) {
+                return countB - countA;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
         renderHousesSidebar();
-        
+
         // Auto-select first house if none selected
         if (state.houses.length > 0 && !state.selectedHouse) {
             selectHouse(state.houses[0]);
@@ -405,8 +416,15 @@ function renderRoomsGrid() {
         return;
     }
     
-    // Sort rooms alphabetically by name
-    state.rooms.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort rooms by furniture count descending, then by name alphabetically
+    state.rooms.sort((a, b) => {
+        const countA = a.furniture_count || 0;
+        const countB = b.furniture_count || 0;
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        return a.name.localeCompare(b.name);
+    });
     
     let html = '<div class="grid-container">';
     state.rooms.forEach(room => {
@@ -463,8 +481,15 @@ function renderFurnitureGrid() {
         return;
     }
     
-    // Sort furniture alphabetically by name
-    state.furniture.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort furniture by compartment count descending, then by name alphabetically
+    state.furniture.sort((a, b) => {
+        const countA = a.compartment_count || 0;
+        const countB = b.compartment_count || 0;
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        return a.name.localeCompare(b.name);
+    });
     
     let html = '<div class="grid-container">';
     state.furniture.forEach(furn => {
@@ -520,8 +545,15 @@ function renderCompartmentsGrid() {
         return;
     }
     
-    // Sort compartments alphabetically by name
-    state.compartments.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort compartments by item count descending, then by name alphabetically
+    state.compartments.sort((a, b) => {
+        const countA = a.item_count || 0;
+        const countB = b.item_count || 0;
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        return a.name.localeCompare(b.name);
+    });
     
     let html = '<div class="grid-container">';
     state.compartments.forEach(comp => {
@@ -576,8 +608,15 @@ function renderItemsTable() {
         return;
     }
     
-    // Sort items alphabetically by name
-    state.items.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort items by count (quantity) descending, then by name alphabetically
+    state.items.sort((a, b) => {
+        const countA = a.count || 0;
+        const countB = b.count || 0;
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        return a.name.localeCompare(b.name);
+    });
     
     let html = `
         <div class="table-responsive">
@@ -705,8 +744,15 @@ function renderSearchResults(results, query) {
         return;
     }
     
-    // Sort search results alphabetically by name
-    results.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort search results by count (quantity) descending, then by name alphabetically
+    results.sort((a, b) => {
+        const countA = a.count || 0;
+        const countB = b.count || 0;
+        if (countB !== countA) {
+            return countB - countA;
+        }
+        return a.name.localeCompare(b.name);
+    });
     
     let html = `
         <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
